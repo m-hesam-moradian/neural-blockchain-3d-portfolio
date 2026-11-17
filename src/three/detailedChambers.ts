@@ -870,6 +870,45 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
   energyAuras.frustumCulled = false;
   root.add(energyAuras);
 
+  // Pick a clean, connected 4-neuron path from Layer 0 -> Layer 1 -> Layer 2 -> Layer 3/4 for the camera data-ride!
+  const startNeuron = layerIndices[0][2] ?? layerIndices[0][0];
+  const findConnectedNext = (curr: number, preferredLayerIdx: number): number => {
+    const candidates = adjNext[curr];
+    if (candidates && candidates.length > 0) {
+      // Prefer a visually centered neuron so the ride stays smoothly inside the block volume
+      let best = candidates[0];
+      let bestDist = Infinity;
+      for (const cIdx of candidates) {
+        const d = Math.abs(neurons[cIdx].orderedPos.y) + Math.abs(neurons[cIdx].orderedPos.z) * 0.4;
+        if (d < bestDist) {
+          bestDist = d;
+          best = cIdx;
+        }
+      }
+      return best;
+    }
+    return layerIndices[preferredLayerIdx][0];
+  };
+  const hop1Neuron = findConnectedNext(startNeuron, 1);
+  const hop2Neuron = heroIdx >= 0 && adjNext[hop1Neuron]?.includes(heroIdx) ? heroIdx : findConnectedNext(hop1Neuron, 2);
+  const hop3Neuron = findConnectedNext(hop2Neuron, 3);
+  const hop4Neuron = findConnectedNext(hop3Neuron, 4);
+  const rideIndices = [startNeuron, hop1Neuron, hop2Neuron, hop3Neuron, hop4Neuron];
+  const rideWaypoints = rideIndices.map((idx) => neurons[idx].orderedPos.clone());
+
+  // Highlighted glowing data-ride trail line connecting the 4/5 ride neurons when camera becomes data
+  const rideLineGeo = new THREE.BufferGeometry().setFromPoints(rideWaypoints);
+  const rideLineMat = new THREE.LineBasicMaterial({
+    color: 0xd8ffff,
+    transparent: true,
+    opacity: 0.0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const rideLine = new THREE.Line(rideLineGeo, rideLineMat);
+  root.add(rideLine);
+  disposables.push(rideLineGeo, rideLineMat);
+
   const energyMeta = [
     { route: pickRandomRoute(), speed: 0.17, offset: 0.05, prevCycle: 0 },
     { route: pickRandomRoute(), speed: 0.21, offset: 0.39, prevCycle: 0 },
@@ -880,54 +919,55 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
 
   const dummy = new THREE.Object3D();
   const _ePos = new THREE.Vector3();
+  let neuralSimTime = 0;
 
   return {
     root,
+    rideWaypoints,
     update: (
-      elapsed: number,
+      delta: number,
       pointerX: number,
       pointerY: number,
       revealFactor: number,
-      mixFactor: number,
+      pauseFactor: number,
       enterNeuronFactor: number
     ) => {
       const reveal = THREE.MathUtils.clamp(revealFactor, 0, 1);
       root.visible = reveal > 0.01;
       if (!root.visible) return;
 
-      const mix = THREE.MathUtils.clamp(mixFactor, 0, 1);
+      const pause = THREE.MathUtils.clamp(pauseFactor, 0, 1);
       const enter = THREE.MathUtils.clamp(enterNeuronFactor, 0, 1);
+      // Smoothly pause neural pulse & ring drift when the blurred About Me card is open
+      neuralSimTime += delta * (1 - pause * 0.94);
 
-      const tiltScale = 1 - enter * 0.88;
+      const tiltScale = (1 - enter * 0.92) * (1 - pause * 0.65);
       root.scale.setScalar(0.84 + reveal * 0.16);
-      root.rotation.y = pointerX * 0.16 * tiltScale;
-      root.rotation.x = pointerY * 0.09 * tiltScale;
+      root.rotation.y = pointerX * 0.14 * tiltScale;
+      root.rotation.x = pointerY * 0.08 * tiltScale;
 
-      // Smooth fade-in across all neural parts with subtle balanced luminance (zero neon blowout)
-      gridMat.opacity = 0.2 * reveal;
-      somaMat.opacity = 0.88 * reveal;
-      nucleusMat.opacity = 0.9 * reveal;
-      ringMat.opacity = 0.55 * reveal;
-      auraPlaneMat.opacity = 0.16 * reveal;
-      energyHeadMat.opacity = 0.92 * reveal;
-      energyAuraMat.opacity = 0.58 * reveal;
+      // Smooth fade-in across all neural parts (dims softly during pause behind blurred card)
+      const activeDim = 1 - pause * 0.25;
+      gridMat.opacity = 0.2 * reveal * activeDim;
+      somaMat.opacity = 0.88 * reveal * activeDim;
+      nucleusMat.opacity = 0.9 * reveal * activeDim;
+      ringMat.opacity = 0.55 * reveal * activeDim;
+      auraPlaneMat.opacity = 0.16 * reveal * activeDim;
+      energyHeadMat.opacity = 0.92 * reveal * (1 - pause * 0.45);
+      energyAuraMat.opacity = 0.58 * reveal * (1 - pause * 0.45);
+      rideLineMat.opacity = THREE.MathUtils.smoothstep(enter, 0.02, 0.22) * 0.72 * reveal;
 
       for (let i = 0; i < neurons.length; i++) {
         const n = neurons[i];
-        n.livePos.lerpVectors(n.orderedPos, n.mixedPos, mix);
+        // NEVER mix up neuron order — keep crisp 5-layer neural topology intact!
+        n.livePos.copy(n.orderedPos);
 
         if (!n.isHero) {
-          const swirlAmp = 0.05 + mix * 0.24;
-          n.livePos.y += Math.sin(elapsed * 1.1 + n.phase) * swirlAmp;
-          n.livePos.z += Math.cos(elapsed * 0.9 + n.phase) * swirlAmp * 0.65;
+          const swirlAmp = 0.045 * (1 - enter * 0.85);
+          n.livePos.y += Math.sin(neuralSimTime * 1.1 + n.phase) * swirlAmp;
+          n.livePos.z += Math.cos(neuralSimTime * 0.9 + n.phase) * swirlAmp * 0.65;
 
-          if (enter > 0.01) {
-            const len = Math.max(0.01, Math.hypot(n.livePos.x, n.livePos.y));
-            n.livePos.x += (n.livePos.x / len) * enter * 1.45;
-            n.livePos.y += (n.livePos.y / len) * enter * 1.1;
-          }
-
-          const pulse = 1.0 + Math.sin(elapsed * 2.2 + n.phase) * 0.1;
+          const pulse = 1.0 + Math.sin(neuralSimTime * 2.2 + n.phase) * 0.1;
           dummy.position.copy(n.livePos);
           dummy.rotation.set(0, 0, 0);
           dummy.scale.setScalar(1.0);
@@ -938,7 +978,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
           dummy.updateMatrix();
           nucleusInstanced.setMatrixAt(i, dummy.matrix);
 
-          dummy.rotation.set(elapsed * 0.45 + n.phase, elapsed * 0.35, n.phase);
+          dummy.rotation.set(neuralSimTime * 0.45 + n.phase, neuralSimTime * 0.35, n.phase);
           dummy.scale.setScalar(1.0);
           dummy.updateMatrix();
           ringInstanced.setMatrixAt(i, dummy.matrix);
@@ -962,21 +1002,19 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
       ringInstanced.instanceMatrix.needsUpdate = true;
       auraInstanced.instanceMatrix.needsUpdate = true;
 
-      // Update Hero Round Neuron Assembly (camera shrinks into it rather than ballooning the neuron!)
+      // Update Center Hero Round Neuron Assembly (stays aligned cleanly in its middle bottleneck slot)
       if (heroIdx >= 0) {
         heroGroup.position.copy(neurons[heroIdx].livePos);
-        const heroScale = 1.0 + mix * 0.55 + enter * 0.25;
-        heroGroup.scale.setScalar(heroScale);
-        heroGroup.rotation.y = elapsed * 0.2 * (1 - enter * 0.7) + pointerX * 0.2;
+        heroGroup.scale.setScalar(1.0);
+        heroGroup.rotation.y = neuralSimTime * 0.2 + pointerX * 0.15 * tiltScale;
 
-        heroRingA.rotation.z = elapsed * 0.5;
-        heroRingB.rotation.y = -elapsed * 0.4;
-        heroRingC.rotation.x = elapsed * 0.34;
-        heroOuterMat.opacity = Math.max(0.05, 0.26 - enter * 0.18) * reveal;
-        heroRingAMat.opacity = Math.max(0.12, 0.62 - enter * 0.38) * reveal;
-        const coreFade = Math.max(0, 1 - THREE.MathUtils.smoothstep(enter, 0.55, 0.95));
-        heroCoreMat.opacity = 0.82 * coreFade * reveal;
-        heroGlowMat.opacity = 0.32 * coreFade * reveal;
+        heroRingA.rotation.z = neuralSimTime * 0.5;
+        heroRingB.rotation.y = -neuralSimTime * 0.4;
+        heroRingC.rotation.x = neuralSimTime * 0.34;
+        heroOuterMat.opacity = 0.26 * reveal * activeDim;
+        heroRingAMat.opacity = 0.62 * reveal * activeDim;
+        heroCoreMat.opacity = 0.82 * reveal * activeDim;
+        heroGlowMat.opacity = 0.32 * reveal * activeDim;
       }
 
       // Sync synaptic connections
@@ -992,7 +1030,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
         synPosArr[s * 6 + 5] = b.z;
       }
       synAttr.needsUpdate = true;
-      synMat.opacity = Math.max(0, 0.34 + mix * 0.12 - enter * 0.14) * reveal;
+      synMat.opacity = Math.max(0, 0.34 - enter * 0.08) * reveal * activeDim;
 
       // Update floating weight & activation number sprites
       for (let m = 0; m < metricSprites.length; m++) {
@@ -1009,13 +1047,13 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
           );
         }
         (item.sprite.material as THREE.SpriteMaterial).opacity =
-          Math.max(0, 0.9 - enter * 1.4) * reveal;
+          Math.max(0, 0.9 - enter * 1.6) * reveal * (1 - pause * 0.55);
       }
 
-      // Animate 3 independent random end-to-end data pulses (Layer 0 -> Layer 4), re-randomizing every pass
+      // Animate 3 independent random end-to-end data pulses (Layer 0 -> Layer 4), smoothly paused while reading
       for (let e = 0; e < energyMeta.length; e++) {
         const em = energyMeta[e];
-        const progress = elapsed * em.speed + em.offset;
+        const progress = neuralSimTime * em.speed + em.offset;
         const cycle = Math.floor(progress);
         if (cycle !== em.prevCycle) {
           em.prevCycle = cycle;

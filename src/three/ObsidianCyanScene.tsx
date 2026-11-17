@@ -27,7 +27,12 @@ interface ObsidianCyanSceneProps {
   scrollProgress: number;
   pedestalMode: PedestalMode;
   cameraResetNonce: number;
-  onTelemetryUpdate?: (chamberIdx: number, warpFlash: number, isOrbiting: boolean) => void;
+  onTelemetryUpdate?: (
+    chamberIdx: number,
+    warpFlash: number,
+    teleportFlash: number,
+    isOrbiting: boolean
+  ) => void;
 }
 
 // Pre-allocated scratch math helpers (Zero GC inside render loop)
@@ -56,15 +61,21 @@ function detectSoftwareWebGL(): boolean {
 
 function sampleDetailedFlight(
   progress: number,
+  rideCurve: THREE.CatmullRomCurve3,
+  firstNeuronWorld: THREE.Vector3,
+  secondNeuronWorld: THREE.Vector3,
+  lastNeuronWorld: THREE.Vector3,
   outPos: THREE.Vector3,
   outTarget: THREE.Vector3
 ): {
   chamberIdx: number;
   warpIntensity: number;
+  teleportFlash: number;
+  teleported: boolean;
   portalFlyProgress: number;
   summitExplodeProgress: number;
   neuralRevealProgress: number;
-  neuralMixProgress: number;
+  neuralPauseFactor: number;
   enterNeuronProgress: number;
   horizontalWarp: boolean;
   nearPlane: number;
@@ -85,15 +96,29 @@ function sampleDetailedFlight(
 
   let warpIntensity = 0;
   let portalFlyProgress = 0;
-  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.28);
-  // Slowly fade the front 0/1 wall opacity & reveal the Neural Network smoothly between 0 and 1
-  const frontWallFade = THREE.MathUtils.smoothstep(p, 0.05, 0.31);
-  const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.05, 0.30);
+  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.19);
+  const frontWallFade = THREE.MathUtils.smoothstep(p, 0.04, 0.21);
+  const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.04, 0.20);
 
-  // Segment 1: CH.01 Chained 0/1 Blocks (0.00) -> 27 blocks explode slowly & camera shrinks inside Chosen Block (0.34)
-  if (p <= DETAILED_CHAMBERS[1].scrollAt) {
-    const span = DETAILED_CHAMBERS[1].scrollAt;
-    const u = p / span;
+  // Smoothly pause neural simulation while About Me card is displayed [0.30 .. 0.47]
+  const pauseIn = THREE.MathUtils.smoothstep(p, 0.30, 0.34);
+  const pauseOut = THREE.MathUtils.smoothstep(p, 0.43, 0.47);
+  const neuralPauseFactor = pauseIn * (1 - pauseOut);
+
+  // Pure Cyan Teleport Flash centered right at p = 0.578 inside the Last Neuron core
+  let teleportFlash = 0;
+  if (p >= 0.558 && p <= 0.602) {
+    if (p < 0.578) {
+      teleportFlash = THREE.MathUtils.smoothstep(p, 0.558, 0.578);
+    } else {
+      teleportFlash = 1 - THREE.MathUtils.smoothstep(p, 0.578, 0.602);
+    }
+  }
+  const teleported = p >= 0.578;
+
+  // Segment 1: CH.01 Genesis Blocks (0.00) -> Explode & enter inside Chosen Block (0.21)
+  if (p <= 0.21) {
+    const u = p / 0.21;
     const eased = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
 
     _vA.set(...DETAILED_CHAMBERS[0].camPos); // (0, 2.35, 11.4)
@@ -104,15 +129,17 @@ function sampleDetailedFlight(
     _vD.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.55, 0)
     outTarget.lerpVectors(_vC, _vD, eased);
 
-    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.14) / 0.45, 0, 1) * Math.PI) * 0.42;
+    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.14) / 0.48, 0, 1) * Math.PI) * 0.38;
     const microBlend = THREE.MathUtils.smoothstep(u, 0.55, 0.95);
     return {
-      chamberIdx,
+      chamberIdx: 0,
       warpIntensity,
+      teleportFlash: 0,
+      teleported: false,
       portalFlyProgress,
       summitExplodeProgress,
       neuralRevealProgress,
-      neuralMixProgress: 0,
+      neuralPauseFactor: 0,
       enterNeuronProgress: 0,
       horizontalWarp: true,
       nearPlane: THREE.MathUtils.lerp(0.1, 0.004, microBlend),
@@ -121,119 +148,145 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 2: CH.02 Inside Chosen Block (0.34) -> About Me window hold -> Fade out + dive into Neuron -> CH.03 Iris (0.68)
-  if (p <= DETAILED_CHAMBERS[2].scrollAt) {
-    const u =
-      (p - DETAILED_CHAMBERS[1].scrollAt) /
-      (DETAILED_CHAMBERS[2].scrollAt - DETAILED_CHAMBERS[1].scrollAt);
+  // Segment 2A: Unobstructed Live Neural Network Viewing Hold (0.21 -> 0.30)
+  if (p <= 0.30) {
+    const u = (p - 0.21) / 0.09;
+    const eased = u * u * (3 - 2 * u);
+    _vA.set(...DETAILED_CHAMBERS[1].camPos); // (0, 1.56, 0.52)
+    _vB.set(0, 1.56, 0.45);
+    outPos.lerpVectors(_vA, _vB, eased);
+    outTarget.set(0, 1.55, 0);
 
-    const neuralMixProgress = THREE.MathUtils.smoothstep(u, 0.18, 0.48);
-    const enterNeuronProgress = THREE.MathUtils.smoothstep(u, 0.46, 0.72);
+    return {
+      chamberIdx: 1,
+      warpIntensity: 0,
+      teleportFlash: 0,
+      teleported: false,
+      portalFlyProgress: 0,
+      summitExplodeProgress: 1,
+      neuralRevealProgress: 1,
+      neuralPauseFactor,
+      enterNeuronProgress: 0,
+      horizontalWarp: true,
+      nearPlane: 0.004,
+      farPlane: 42,
+      frontWallFade: 1,
+    };
+  }
 
-    if (u < 0.22) {
-      // Phase 2A: Gentle Showcase Drift while About Me Holographic Card is displayed cleanly over the Neural Net
-      const t = u / 0.22;
-      const eased = t * t * (3 - 2 * t);
-      _vA.set(...DETAILED_CHAMBERS[1].camPos); // (0, 1.56, 0.52)
-      _vB.set(0, 1.55, 0.36);
-      outPos.lerpVectors(_vA, _vB, eased);
+  // Segment 2B: Neural Net Pauses + About Me Blurred Glass Card Hold (0.30 -> 0.47)
+  if (p <= 0.47) {
+    const u = (p - 0.30) / 0.17;
+    const eased = u * u * (3 - 2 * u);
+    _vA.set(0, 1.56, 0.45);
+    _vB.set(0, 1.56, 0.42);
+    outPos.lerpVectors(_vA, _vB, eased);
+    outTarget.set(0, 1.55, 0);
 
-      _vC.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.55, 0)
-      _vD.set(0, 1.55, -0.015);
-      outTarget.lerpVectors(_vC, _vD, eased);
+    return {
+      chamberIdx: 1,
+      warpIntensity: 0,
+      teleportFlash: 0,
+      teleported: false,
+      portalFlyProgress: 0,
+      summitExplodeProgress: 1,
+      neuralRevealProgress: 1,
+      neuralPauseFactor,
+      enterNeuronProgress: 0,
+      horizontalWarp: true,
+      nearPlane: 0.004,
+      farPlane: 40,
+      frontWallFade: 1,
+    };
+  }
 
-      return {
-        chamberIdx,
-        warpIntensity: 0,
-        portalFlyProgress: 0,
-        summitExplodeProgress: 1,
-        neuralRevealProgress: 1,
-        neuralMixProgress,
-        enterNeuronProgress,
-        horizontalWarp: true,
-        nearPlane: 0.004,
-        farPlane: 40,
-        frontWallFade: 1,
-      };
-    } else if (u < 0.48) {
-      // Phase 2B: Window gently disappears WHILE neurons mix order & camera glides closer to Hero Round Neuron
-      const t = (u - 0.22) / 0.26;
-      const eased = t * t * (3 - 2 * t);
-      _vA.set(0, 1.55, 0.36);
-      _vB.set(0, 1.55, 0.11);
-      outPos.lerpVectors(_vA, _vB, eased);
+  // Segment 2C: Fly to First Neuron (0.47 -> 0.505)
+  if (p <= 0.505) {
+    const u = (p - 0.47) / 0.035;
+    const eased = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
 
-      _vC.set(0, 1.55, -0.015);
-      _vD.set(0, 1.55, -0.0312);
-      outTarget.lerpVectors(_vC, _vD, eased);
+    _vA.set(0, 1.56, 0.42);
+    outPos.lerpVectors(_vA, firstNeuronWorld, eased);
 
-      return {
-        chamberIdx,
-        warpIntensity: 0,
-        portalFlyProgress: 0,
-        summitExplodeProgress: 1,
-        neuralRevealProgress: 1,
-        neuralMixProgress,
-        enterNeuronProgress,
-        horizontalWarp: true,
-        nearPlane: THREE.MathUtils.lerp(0.004, 0.0014, eased),
-        farPlane: THREE.MathUtils.lerp(40, 24, eased),
-        frontWallFade: 1,
-      };
-    } else if (u < 0.72) {
-      // Phase 2C: Camera shrinks straight INSIDE Hero Round Neuron
-      const t = (u - 0.48) / 0.24;
-      const eased = t * t * (3 - 2 * t);
-      _vA.set(0, 1.55, 0.11);
-      _vB.set(0, 1.55, -0.06);
-      outPos.lerpVectors(_vA, _vB, eased);
+    _vC.set(0, 1.55, 0);
+    outTarget.lerpVectors(_vC, secondNeuronWorld, eased);
 
-      _vC.set(0, 1.55, -0.0312);
-      _vD.set(0, 1.05, -0.35);
-      outTarget.lerpVectors(_vC, _vD, eased);
+    return {
+      chamberIdx: 1,
+      warpIntensity: 0,
+      teleportFlash: 0,
+      teleported: false,
+      portalFlyProgress: 0,
+      summitExplodeProgress: 1,
+      neuralRevealProgress: 1,
+      neuralPauseFactor: 0,
+      enterNeuronProgress: THREE.MathUtils.smoothstep(u, 0.0, 1.0) * 0.4,
+      horizontalWarp: true,
+      nearPlane: THREE.MathUtils.lerp(0.004, 0.0005, eased),
+      farPlane: THREE.MathUtils.lerp(40, 18, eased),
+      frontWallFade: 1,
+    };
+  }
 
-      return {
-        chamberIdx,
-        warpIntensity: 0,
-        portalFlyProgress: 0,
-        summitExplodeProgress: 1,
-        neuralRevealProgress: 1,
-        neuralMixProgress,
-        enterNeuronProgress,
-        horizontalWarp: true,
-        nearPlane: 0.001,
-        farPlane: 18,
-        frontWallFade: 1,
-      };
+  // Segment 2D: Ride like Data across Connected Neurons -> Inside Last Neuron -> Teleport (0.505 -> 0.578)
+  if (p < 0.578) {
+    const rideT = THREE.MathUtils.clamp((p - 0.505) / (0.578 - 0.505), 0, 1);
+    rideCurve.getPointAt(rideT, outPos);
+    if (rideT < 0.9) {
+      rideCurve.getPointAt(Math.min(1, rideT + 0.08), outTarget);
     } else {
-      // Phase 2D: Exit out bottom/back of Chosen Block down subterranean shaft into CH.03 Iris Canyon
-      const t = (u - 0.72) / 0.28;
-      const eased = 1 - Math.pow(1 - t, 3);
-      _vA.set(0, 1.55, -0.06);
-      _vB.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -6.0)
-      outPos.lerpVectors(_vA, _vB, eased);
-
-      _vC.set(0, 1.05, -0.35);
-      _vD.set(...DETAILED_CHAMBERS[2].camTarget); // (0, -24.0, -12.0)
-      outTarget.lerpVectors(_vC, _vD, eased);
-
-      const macroRestore = THREE.MathUtils.smoothstep(t, 0.06, 0.35);
-      warpIntensity = Math.sin(THREE.MathUtils.clamp((t - 0.14) / 0.72, 0, 1) * Math.PI) * 0.52;
-
-      return {
-        chamberIdx,
-        warpIntensity,
-        portalFlyProgress: 0,
-        summitExplodeProgress: 1,
-        neuralRevealProgress: 1,
-        neuralMixProgress,
-        enterNeuronProgress,
-        horizontalWarp: false,
-        nearPlane: THREE.MathUtils.lerp(0.0012, 0.1, macroRestore),
-        farPlane: THREE.MathUtils.lerp(18, 180, macroRestore),
-        frontWallFade: 1,
-      };
+      // Look smoothly deep into the glowing Last Neuron nucleus right as we teleport
+      const endBlend = (rideT - 0.9) / 0.1;
+      rideCurve.getPointAt(1.0, _vC);
+      _vD.copy(lastNeuronWorld).add(_vA.set(0.04, 0, 0));
+      outTarget.lerpVectors(_vC, _vD, endBlend);
     }
+
+    return {
+      chamberIdx: 1,
+      warpIntensity: 0,
+      teleportFlash,
+      teleported: false,
+      portalFlyProgress: 0,
+      summitExplodeProgress: 1,
+      neuralRevealProgress: 1,
+      neuralPauseFactor: 0,
+      enterNeuronProgress: 0.4 + rideT * 0.6,
+      horizontalWarp: true,
+      nearPlane: 0.0005,
+      farPlane: 16,
+      frontWallFade: 1,
+    };
+  }
+
+  // Segment 2E: Teleported out of Last Neuron cleanly to CH.03 Iris Arrival Approach (0.578 -> 0.72)
+  if (p <= DETAILED_CHAMBERS[2].scrollAt) {
+    const u = (p - 0.578) / (DETAILED_CHAMBERS[2].scrollAt - 0.578);
+    const eased = 1 - Math.pow(1 - u, 2.5);
+    // Materialize already in clean orbital approach above Iris Portal (never clipping through any box!)
+    _vA.set(0, -11.5, -4.0);
+    _vB.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -6.0)
+    outPos.lerpVectors(_vA, _vB, eased);
+
+    _vC.set(0, -24.0, -12.0);
+    _vD.set(...DETAILED_CHAMBERS[2].camTarget);
+    outTarget.lerpVectors(_vC, _vD, eased);
+
+    return {
+      chamberIdx: 2,
+      warpIntensity: 0,
+      teleportFlash,
+      teleported: true,
+      portalFlyProgress: 0,
+      summitExplodeProgress: 1,
+      neuralRevealProgress: 0,
+      neuralPauseFactor: 0,
+      enterNeuronProgress: 1,
+      horizontalWarp: false,
+      nearPlane: 0.1,
+      farPlane: 180,
+      frontWallFade: 1,
+    };
   }
 
   // Segment 3: CH.03 Iris (0.70) -> Work Showcase Hold -> Plunge through 4-ring Portal -> CH.04 Pedestal (1.00)
@@ -255,10 +308,12 @@ function sampleDetailedFlight(
     return {
       chamberIdx: 2,
       warpIntensity: 0,
+      teleportFlash,
+      teleported: true,
       portalFlyProgress,
       summitExplodeProgress: 1,
-      neuralRevealProgress: 1,
-      neuralMixProgress: 1,
+      neuralRevealProgress: 0,
+      neuralPauseFactor: 0,
       enterNeuronProgress: 1,
       horizontalWarp: false,
       nearPlane: 0.1,
@@ -283,10 +338,12 @@ function sampleDetailedFlight(
     return {
       chamberIdx: u < 0.45 ? 2 : 3,
       warpIntensity,
+      teleportFlash: 0,
+      teleported: true,
       portalFlyProgress,
       summitExplodeProgress: 1,
-      neuralRevealProgress: 1,
-      neuralMixProgress: 1,
+      neuralRevealProgress: 0,
+      neuralPauseFactor: 0,
       enterNeuronProgress: 1,
       horizontalWarp: false,
       nearPlane: 0.1,
@@ -310,10 +367,12 @@ function sampleDetailedFlight(
     return {
       chamberIdx: 3,
       warpIntensity,
+      teleportFlash: 0,
+      teleported: true,
       portalFlyProgress,
       summitExplodeProgress: 1,
-      neuralRevealProgress: 1,
-      neuralMixProgress: 1,
+      neuralRevealProgress: 0,
+      neuralPauseFactor: 0,
       enterNeuronProgress: 1,
       horizontalWarp: false,
       nearPlane: 0.1,
@@ -458,6 +517,15 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const driftChamber = buildDriftChamber(glowTex);
     summitChamber.chosenAnchor.add(driftChamber.root);
 
+    // Transform local neuron ride waypoints into exact world coordinates inside Chosen Block (scale 0.026, center y=1.55)
+    const worldWaypoints = driftChamber.rideWaypoints.map(
+      (lp) => new THREE.Vector3(lp.x * 0.026, 1.55 + lp.y * 0.026, lp.z * 0.026)
+    );
+    const rideCurve = new THREE.CatmullRomCurve3(worldWaypoints, false, 'centripetal', 0.35);
+    const firstNeuronWorld = worldWaypoints[0];
+    const secondNeuronWorld = worldWaypoints[1] ?? worldWaypoints[0];
+    const lastNeuronWorld = worldWaypoints[worldWaypoints.length - 1];
+
     const irisChamber = buildIrisChamber(-24, -12, obsidianTex, glowTex);
     scene.add(irisChamber.root);
 
@@ -580,7 +648,9 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     let disposed = false;
     let lastChamberIdx = -1;
     let lastWarp = -1;
+    let lastTeleportFlash = -1;
     let lastOrbit = false;
+    let prevTeleported = scrollRef.current >= 0.578;
     const clock = new THREE.Clock();
 
     function afterDraw(cb: () => void) {
@@ -620,59 +690,82 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       const {
         chamberIdx,
         warpIntensity,
+        teleportFlash,
+        teleported,
         portalFlyProgress,
         summitExplodeProgress,
         neuralRevealProgress,
-        neuralMixProgress,
+        neuralPauseFactor,
         enterNeuronProgress,
         horizontalWarp,
         nearPlane,
         farPlane,
         frontWallFade,
-      } = sampleDetailedFlight(scrollRef.current, _camGoalPos, _camGoalTarget);
+      } = sampleDetailedFlight(
+        scrollRef.current,
+        rideCurve,
+        firstNeuronWorld,
+        secondNeuronWorld,
+        lastNeuronWorld,
+        _camGoalPos,
+        _camGoalTarget
+      );
 
       if (
         chamberIdx !== lastChamberIdx ||
         Math.abs(warpIntensity - lastWarp) > 0.02 ||
+        Math.abs(teleportFlash - lastTeleportFlash) > 0.015 ||
         userOrbitingRef.current !== lastOrbit
       ) {
         lastChamberIdx = chamberIdx;
         lastWarp = warpIntensity;
+        lastTeleportFlash = teleportFlash;
         lastOrbit = userOrbitingRef.current;
-        telemetryCbRef.current?.(chamberIdx, warpIntensity, userOrbitingRef.current);
+        telemetryCbRef.current?.(chamberIdx, warpIntensity, teleportFlash, userOrbitingRef.current);
       }
 
-      const nextNear = THREE.MathUtils.damp(camera.near, nearPlane, 8, delta);
-      const nextFar = THREE.MathUtils.damp(camera.far, farPlane, 8, delta);
-      if (Math.abs(nextNear - camera.near) > 0.0002 || Math.abs(nextFar - camera.far) > 0.1) {
-        camera.near = nextNear;
-        camera.far = nextFar;
+      const crossedTeleport = teleported !== prevTeleported;
+      prevTeleported = teleported;
+
+      if (crossedTeleport) {
+        camera.near = nearPlane;
+        camera.far = farPlane;
         camera.updateProjectionMatrix();
-      }
+        camera.position.copy(_camGoalPos);
+        controls.target.copy(_camGoalTarget);
+        userOrbitingRef.current = false;
+      } else {
+        const nextNear = THREE.MathUtils.damp(camera.near, nearPlane, 10, delta);
+        const nextFar = THREE.MathUtils.damp(camera.far, farPlane, 10, delta);
+        if (Math.abs(nextNear - camera.near) > 0.0001 || Math.abs(nextFar - camera.far) > 0.1) {
+          camera.near = nextNear;
+          camera.far = nextFar;
+          camera.updateProjectionMatrix();
+        }
 
-      if (!userOrbitingRef.current) {
-        const camDist = _camGoalPos.distanceTo(_camGoalTarget);
-        const parallaxScale = Math.min(1.0, camDist * 0.09);
-        _camGoalPos.x += pointerSmooth.x * 0.72 * parallaxScale;
-        _camGoalPos.y += pointerSmooth.y * 0.42 * parallaxScale;
+        if (!userOrbitingRef.current) {
+          const camDist = _camGoalPos.distanceTo(_camGoalTarget);
+          const parallaxScale =
+            enterNeuronProgress > 0.05 ? 0 : Math.min(1.0, camDist * 0.09);
+          _camGoalPos.x += pointerSmooth.x * 0.72 * parallaxScale;
+          _camGoalPos.y += pointerSmooth.y * 0.42 * parallaxScale;
 
-        const damp = 4.6;
-        camera.position.x = THREE.MathUtils.damp(camera.position.x, _camGoalPos.x, damp, delta);
-        camera.position.y = THREE.MathUtils.damp(camera.position.y, _camGoalPos.y, damp, delta);
-        camera.position.z = THREE.MathUtils.damp(camera.position.z, _camGoalPos.z, damp, delta);
+          const damp = enterNeuronProgress > 0.05 ? 9.5 : 4.8;
+          camera.position.x = THREE.MathUtils.damp(camera.position.x, _camGoalPos.x, damp, delta);
+          camera.position.y = THREE.MathUtils.damp(camera.position.y, _camGoalPos.y, damp, delta);
+          camera.position.z = THREE.MathUtils.damp(camera.position.z, _camGoalPos.z, damp, delta);
 
-        controls.target.x = THREE.MathUtils.damp(controls.target.x, _camGoalTarget.x, damp, delta);
-        controls.target.y = THREE.MathUtils.damp(controls.target.y, _camGoalTarget.y, damp, delta);
-        controls.target.z = THREE.MathUtils.damp(controls.target.z, _camGoalTarget.z, damp, delta);
+          controls.target.x = THREE.MathUtils.damp(controls.target.x, _camGoalTarget.x, damp, delta);
+          controls.target.y = THREE.MathUtils.damp(controls.target.y, _camGoalTarget.y, damp, delta);
+          controls.target.z = THREE.MathUtils.damp(controls.target.z, _camGoalTarget.z, damp, delta);
+        }
       }
 
       controls.update();
 
-      // Update Chambers cleanly within active spatial range
-      volcanicTerrain.root.visible =
-        camera.position.y > -1.0 && (camera.position.z > 0.65 || scrollRef.current < 0.34);
-
-      summitChamber.root.visible = camera.position.y > -6;
+      // Clean visibility separation so Summit / Chosen Block NEVER clip during teleport to Iris!
+      volcanicTerrain.root.visible = !teleported && camera.position.z > 0.65;
+      summitChamber.root.visible = !teleported;
       if (summitChamber.root.visible) {
         summitChamber.update(
           elapsed,
@@ -682,18 +775,20 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
           frontWallFade
         );
         driftChamber.update(
-          elapsed,
+          delta,
           pointerSmooth.x,
           pointerSmooth.y,
           neuralRevealProgress,
-          neuralMixProgress,
+          neuralPauseFactor,
           enterNeuronProgress
         );
       }
-      if (camera.position.y < -2 && camera.position.y > -46) {
+      irisChamber.root.visible = teleported;
+      if (irisChamber.root.visible && camera.position.y > -46) {
         irisChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y, portalFlyProgress);
       }
-      if (camera.position.y < -24) {
+      pedestalChamber.root.visible = teleported && camera.position.y < -22;
+      if (pedestalChamber.root.visible) {
         pedestalChamber.update(
           elapsed,
           delta,

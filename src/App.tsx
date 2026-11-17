@@ -26,10 +26,10 @@ interface ScrollCardState {
 }
 
 function getScrollCardState(progress: number): ScrollCardState {
-  // CH.02 // ABOUT ME (enters 0.25->0.32, holds, fades out 0.41->0.49 with neuron dive)
-  if (progress >= 0.25 && progress <= 0.49) {
-    const enterT = smoothstep(0.25, 0.32, progress);
-    const exitT = smoothstep(0.41, 0.49, progress);
+  // CH.02 // ABOUT ME (unobstructed neural viewing 0.21..0.30, then pauses & card opens 0.30..0.47)
+  if (progress >= 0.30 && progress <= 0.47) {
+    const enterT = smoothstep(0.30, 0.35, progress);
+    const exitT = smoothstep(0.425, 0.47, progress);
     return {
       activeCard: 'about',
       revealAmount: enterT * (1 - exitT),
@@ -38,10 +38,10 @@ function getScrollCardState(progress: number): ScrollCardState {
     };
   }
 
-  // CH.03 // WORK (enters 0.63->0.69, holds, fades out 0.77->0.85 with iris plunge)
-  if (progress >= 0.63 && progress <= 0.85) {
-    const enterT = smoothstep(0.63, 0.69, progress);
-    const exitT = smoothstep(0.77, 0.85, progress);
+  // CH.03 // WORK (enters 0.66->0.71, holds, fades out 0.79->0.85 right before Iris plunge)
+  if (progress >= 0.66 && progress <= 0.85) {
+    const enterT = smoothstep(0.66, 0.71, progress);
+    const exitT = smoothstep(0.79, 0.85, progress);
     return {
       activeCard: 'work',
       revealAmount: enterT * (1 - exitT),
@@ -68,6 +68,7 @@ export default function App() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeChamberIdx, setActiveChamberIdx] = useState(0);
   const [warpIntensity, setWarpIntensity] = useState(0);
+  const [teleportFlash, setTeleportFlash] = useState(0);
   const [isOrbiting, setIsOrbiting] = useState(false);
   const [pedestalMode, setPedestalMode] = useState<PedestalMode>('blockchain');
   const [cameraResetNonce, setCameraResetNonce] = useState(0);
@@ -111,12 +112,13 @@ export default function App() {
   }, []);
 
   const handleTelemetryUpdate = useCallback(
-    (chamberIdx: number, warp: number, orbiting: boolean) => {
+    (chamberIdx: number, warp: number, teleport: number, orbiting: boolean) => {
       setActiveChamberIdx((prev) => {
         if (prev !== chamberIdx) ambientAudio.playPulse();
         return chamberIdx;
       });
       setWarpIntensity(warp);
+      setTeleportFlash(teleport);
       setIsOrbiting(orbiting);
     },
     []
@@ -157,6 +159,17 @@ export default function App() {
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-10 bg-[#00FFFF]"
         style={{ opacity: warpIntensity * 0.05, transition: 'opacity 60ms linear' }}
+      />
+
+      {/* Neuron Core Teleport Flash (smooth pure-cyan energy saturation from inside Last Neuron) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-40"
+        style={{
+          opacity: teleportFlash,
+          background:
+            'radial-gradient(circle at center, #D8FFFF 0%, #00FFFF 42%, #091820 100%)',
+        }}
       />
 
       {/* Minimal Edge HUD Overlay */}
@@ -273,9 +286,9 @@ export default function App() {
         }}
       />
 
-      {/* 800vh Scroll Driver */}
+      {/* 1100vh Scroll Driver for unhurried Neural Core & Card pacing */}
       <main className="relative z-0 pointer-events-none" aria-hidden="true">
-        <div className="h-[800vh]" />
+        <div className="h-[1100vh]" />
       </main>
     </div>
   );

@@ -95,8 +95,8 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
     activeCard === 'work'
       ? 'max-w-3xl'
       : activeCard === 'about'
-        ? 'max-w-2xl'
-        : 'max-w-xl';
+        ? 'max-w-xl'
+        : 'max-w-lg';
 
   const animStyle: React.CSSProperties = {
     opacity: revealAmount,
@@ -115,7 +115,7 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
     >
       <div
         style={animStyle}
-        className={`pointer-events-none relative w-full ${cardWidthClass} border border-[#8A929A]/40 bg-[#0D1116]/72 p-4 md:p-5 shadow-2xl`}
+        className={`pointer-events-none relative w-full ${cardWidthClass} border border-[#00FFFF]/35 bg-[#080C12]/84 backdrop-blur-md p-5 md:p-6 shadow-[0_14px_48px_rgba(0,0,0,0.78)]`}
       >
         {/* Crisp Pure Cyan Corner Reticles */}
         <span aria-hidden="true" className="absolute -top-[1px] -left-[1px] h-3.5 w-3.5 border-t-2 border-l-2 border-[#00FFFF]" />
@@ -124,13 +124,13 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
         <span aria-hidden="true" className="absolute -bottom-[1px] -right-[1px] h-3.5 w-3.5 border-b-2 border-r-2 border-[#00FFFF]" />
 
         {/* ================================================================= */}
-        {/* CH.02 // ABOUT ME — Compact Top-Left Portrait + Concise Resume    */}
+        {/* CH.02 // ABOUT ME — Top-Left Portrait + Name + Location + Bio      */}
         {/* ================================================================= */}
         {activeCard === 'about' && (
           <div className="space-y-4">
             {/* Top-Left Compact Biometric Face ID + Identity Header */}
             <div className="flex items-center gap-4 border-b border-[#8A929A]/25 pb-4">
-              <div className="relative h-20 w-20 sm:h-[88px] sm:w-[88px] shrink-0 overflow-hidden border border-[#00FFFF]/50 bg-[#06090D]">
+              <div className="relative h-20 w-20 sm:h-[86px] sm:w-[86px] shrink-0 overflow-hidden border border-[#00FFFF]/55 bg-[#06090D]">
                 {hasPhoto ? (
                   <img
                     src={RESUME_DATA.identity.avatarUrl}
@@ -163,87 +163,28 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                 </span>
               </div>
 
-              <div className="min-w-0 flex-1 space-y-1">
+              <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-display-hud text-lg sm:text-xl font-medium tracking-tight text-[#FFFFFF] truncate">
+                  <h2 className="font-display-hud text-xl sm:text-2xl font-medium tracking-tight text-[#FFFFFF] truncate">
                     {RESUME_DATA.identity.name}
                   </h2>
-                  <span className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF] border border-[#00FFFF]/40 bg-[#00FFFF]/10 px-2 py-0.5">
+                  <span className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF] border border-[#00FFFF]/50 bg-[#00FFFF]/12 px-2.5 py-0.5 shrink-0">
                     {RESUME_DATA.identity.availability}
                   </span>
                 </div>
                 <p className="font-mono-hud text-xs text-[#D8FFFF]/90 truncate">
                   {RESUME_DATA.identity.role}
                 </p>
-                <p className="font-mono-hud text-[10px] tracking-wider text-[#8A929A]">
+                <p className="font-mono-hud text-[11px] tracking-wider text-[#9CA6B0]">
                   {RESUME_DATA.identity.location}
                 </p>
               </div>
             </div>
 
-            {/* Concise 2-Line Bio Summary */}
-            <p className="text-xs sm:text-[13px] leading-relaxed text-[#C2CBD2]">
+            {/* Clean, High-Contrast Bio Description */}
+            <p className="text-sm sm:text-[15px] leading-relaxed text-[#E8F0F4]">
               {RESUME_DATA.about.summary}
             </p>
-
-            {/* Minimal 3-Node Capability Strip */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {RESUME_DATA.about.capabilities.map((cap) => (
-                <div
-                  key={cap.code}
-                  className="border border-[#8A929A]/30 bg-[#090D12]/80 px-2.5 py-2"
-                >
-                  <div className="flex items-center justify-between font-mono-hud text-[9px]">
-                    <span className="text-[#FFFFFF] tracking-wider">{cap.label}</span>
-                    <span className="text-[#00FFFF]">{cap.code}</span>
-                  </div>
-                  <p className="font-mono-hud text-[10px] text-[#8A929A] mt-0.5 truncate">
-                    {cap.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Quiet One-Row Footer Links */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#8A929A]/20">
-              <div className="flex items-center gap-3 font-mono-hud text-[10px] text-[#8A929A]">
-                {RESUME_DATA.about.telemetry.map((t) => (
-                  <span key={t.label}>
-                    <span className="text-[#8A929A]/70">{t.label}:</span>{' '}
-                    <span className={t.highlight ? 'text-[#00FFFF]' : 'text-[#FFFFFF]'}>
-                      {t.value}
-                    </span>
-                  </span>
-                ))}
-              </div>
-
-              <div className="pointer-events-auto flex items-center gap-1.5">
-                <a
-                  href={RESUME_DATA.identity.githubUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 border border-[#8A929A]/35 px-2 py-1 font-mono-hud text-[10px] text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors"
-                >
-                  GITHUB <ArrowUpRight className="w-3 h-3" />
-                </a>
-                <a
-                  href={RESUME_DATA.identity.linkedinUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 border border-[#8A929A]/35 px-2 py-1 font-mono-hud text-[10px] text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors"
-                >
-                  LINKEDIN <ArrowUpRight className="w-3 h-3" />
-                </a>
-                <button
-                  type="button"
-                  onClick={handleCopyEmail}
-                  className="inline-flex items-center gap-1 border border-[#00FFFF]/45 bg-[#00FFFF]/10 px-2 py-1 font-mono-hud text-[10px] text-[#00FFFF] hover:bg-[#00FFFF]/20 transition-colors cursor-pointer"
-                >
-                  {copiedEmail ? 'COPIED' : 'EMAIL'}
-                  {copiedEmail ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
