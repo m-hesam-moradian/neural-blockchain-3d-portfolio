@@ -95,28 +95,28 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
     activeCard === 'work'
       ? 'w-full md:w-[48%] lg:w-[45%] max-w-[560px]'
       : activeCard === 'about'
-        ? 'w-full max-w-xl'
+        ? 'w-full md:w-[45%] lg:w-[42%] max-w-[490px]'
         : 'w-full max-w-lg';
 
-  const wrapperAlignClass =
-    activeCard === 'work'
-      ? 'justify-center md:justify-end md:pr-8 lg:pr-12'
-      : 'justify-center';
+  const isRightDocked = activeCard === 'work' || activeCard === 'about';
+
+  const wrapperAlignClass = isRightDocked
+    ? 'justify-center md:justify-end md:pr-8 lg:pr-12'
+    : 'justify-center';
 
   const animStyle: React.CSSProperties = {
     opacity: revealAmount,
-    transform:
-      activeCard === 'work'
-        ? `translate3d(${((1 - enterT) * 22 - exitT * 18).toFixed(1)}px, 0, 0) scale(${(
-            0.96 +
-            0.04 * enterT +
-            0.015 * exitT
-          ).toFixed(4)})`
-        : `translate3d(0, ${((1 - enterT) * 16 - exitT * 14).toFixed(1)}px, 0) scale(${(
-            0.95 +
-            0.05 * enterT +
-            0.025 * exitT
-          ).toFixed(4)})`,
+    transform: isRightDocked
+      ? `translate3d(${((1 - enterT) * 22 - exitT * 18).toFixed(1)}px, 0, 0) scale(${(
+          0.96 +
+          0.04 * enterT +
+          0.015 * exitT
+        ).toFixed(4)})`
+      : `translate3d(0, ${((1 - enterT) * 16 - exitT * 14).toFixed(1)}px, 0) scale(${(
+          0.95 +
+          0.05 * enterT +
+          0.025 * exitT
+        ).toFixed(4)})`,
     willChange: 'transform, opacity',
   };
 

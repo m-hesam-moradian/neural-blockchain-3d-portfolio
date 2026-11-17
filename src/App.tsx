@@ -26,9 +26,9 @@ interface ScrollCardState {
 }
 
 function getScrollCardState(progress: number): ScrollCardState {
-  // CH.02 // ABOUT ME (unobstructed neural viewing 0.21..0.30, then pauses & card opens 0.30..0.46)
-  if (progress >= 0.30 && progress <= 0.46) {
-    const enterT = smoothstep(0.30, 0.34, progress);
+  // CH.02 // ABOUT ME (unobstructed neural viewing 0.21..0.30, then sweeps side-wise left & About Me card opens right 0.315..0.46)
+  if (progress >= 0.315 && progress <= 0.46) {
+    const enterT = smoothstep(0.315, 0.36, progress);
     const exitT = smoothstep(0.42, 0.46, progress);
     return {
       activeCard: 'about',

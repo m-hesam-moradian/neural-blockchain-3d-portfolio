@@ -184,14 +184,17 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 2B: Neural Net Pauses + About Me Blurred Glass Card Hold (0.30 -> 0.46)
+  // Segment 2B: Sweep into 3/4 Side-Wise Left-Half Pose + About Me Card on Right Half (0.30 -> 0.46)
   if (p <= 0.46) {
     const u = (p - 0.30) / 0.16;
-    const eased = u * u * (3 - 2 * u);
+    const orbitIn = THREE.MathUtils.smoothstep(u, 0.0, 0.26);
     _vA.set(0, 1.56, 0.45);
-    _vB.set(0, 1.56, 0.42);
-    outPos.lerpVectors(_vA, _vB, eased);
-    outTarget.set(0, 1.55, 0);
+    _vB.set(-0.19, 1.6, 0.3);
+    outPos.lerpVectors(_vA, _vB, orbitIn);
+
+    _vC.set(0, 1.55, 0);
+    _vD.set(0.14, 1.54, 0.04);
+    outTarget.lerpVectors(_vC, _vD, orbitIn);
 
     return {
       chamberIdx: 1,
@@ -212,7 +215,7 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 2C: Unified Sweeping Spline Glide from Hold -> First Neuron -> 3 Neurons -> Inside Last Neuron (0.46 -> 0.592)
+  // Segment 2C: Unified Sweeping Spline Glide from Side-View -> First Neuron -> 3 Neurons -> Inside Last Neuron (0.46 -> 0.592)
   if (p < 0.592) {
     const u = THREE.MathUtils.clamp((p - 0.46) / (0.592 - 0.46), 0, 1);
     const rideT = u < 0.2 ? 0.5 * (u / 0.2) * u : u;
@@ -228,8 +231,8 @@ function sampleDetailedFlight(
       _vD.lerpVectors(_vC, _vA, endBlend);
     }
 
-    const lookPan = THREE.MathUtils.smoothstep(u, 0.0, 0.24);
-    _vC.set(0, 1.55, 0);
+    const lookPan = THREE.MathUtils.smoothstep(u, 0.0, 0.26);
+    _vC.set(0.14, 1.54, 0.04);
     outTarget.lerpVectors(_vC, _vD, lookPan);
 
     const nearEase = THREE.MathUtils.smoothstep(u, 0.05, 0.35);
@@ -537,11 +540,11 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const lastNeuronWorld = worldWaypoints[worldWaypoints.length - 1];
     const rideCurve = new THREE.CatmullRomCurve3(
       [
-        new THREE.Vector3(0, 1.56, 0.42),
+        new THREE.Vector3(-0.19, 1.6, 0.3),
         new THREE.Vector3(
-          firstNeuronWorld.x - 0.035,
-          firstNeuronWorld.y + 0.01,
-          firstNeuronWorld.z + 0.15
+          firstNeuronWorld.x - 0.045,
+          firstNeuronWorld.y + 0.015,
+          firstNeuronWorld.z + 0.14
         ),
         ...worldWaypoints,
       ],

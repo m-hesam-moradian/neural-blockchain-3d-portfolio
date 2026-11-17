@@ -946,19 +946,20 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
       neuralSimTime += delta * (1 - pause * 0.94);
 
       const tiltScale = (1 - enter * 0.92) * (1 - pause * 0.65);
-      root.scale.setScalar(0.84 + reveal * 0.16);
+      const sideScale = 1 - pause * 0.22;
+      root.scale.setScalar((0.84 + reveal * 0.16) * sideScale);
       root.rotation.y = pointerX * 0.14 * tiltScale;
       root.rotation.x = pointerY * 0.08 * tiltScale;
 
-      // Smooth fade-in across all neural parts (dims softly during pause behind blurred card)
-      const activeDim = 1 - pause * 0.25;
+      // Smooth fade-in across all neural parts (stays crisp beside the right-half About Me card)
+      const activeDim = 1 - pause * 0.1;
       gridMat.opacity = 0.2 * reveal * activeDim;
       somaMat.opacity = 0.88 * reveal * activeDim;
       nucleusMat.opacity = 0.9 * reveal * activeDim;
       ringMat.opacity = 0.55 * reveal * activeDim;
       auraPlaneMat.opacity = 0.16 * reveal * activeDim;
-      energyHeadMat.opacity = 0.92 * reveal * (1 - pause * 0.45);
-      energyAuraMat.opacity = 0.58 * reveal * (1 - pause * 0.45);
+      energyHeadMat.opacity = 0.92 * reveal * (1 - pause * 0.32);
+      energyAuraMat.opacity = 0.58 * reveal * (1 - pause * 0.32);
       rideLineMat.opacity = THREE.MathUtils.smoothstep(enter, 0.02, 0.22) * 0.72 * reveal;
 
       for (let i = 0; i < neurons.length; i++) {
@@ -1051,7 +1052,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
           );
         }
         (item.sprite.material as THREE.SpriteMaterial).opacity =
-          Math.max(0, 0.9 - enter * 1.6) * reveal * (1 - pause * 0.55);
+          Math.max(0, 0.9 - enter * 1.6) * reveal * (1 - pause * 0.2);
       }
 
       // Animate 3 independent random end-to-end data pulses (Layer 0 -> Layer 4), smoothly paused while reading
