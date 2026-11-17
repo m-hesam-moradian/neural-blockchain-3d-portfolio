@@ -32,11 +32,13 @@ export function buildVolcanicHorizonTerrain(): {
     const z = pos.getZ(i);
     const worldZ = z - 24;
 
+    // Carve a wide, clear canyon valley corridor along |x| < 12 between CH.01 (z=0) and CH.02 (z=-20..-32)
+    // so mountains flank left/right/far-horizon dramatically without ever blocking the flight path or neural net!
     const distSummit = Math.hypot(x * 0.85, worldZ);
-    const distDrift = Math.hypot(x * 0.85, worldZ + 36);
-    const basinMask =
-      THREE.MathUtils.smoothstep(distSummit, 3.8, 16.0) *
-      THREE.MathUtils.smoothstep(distDrift, 6.5, 19.0);
+    const corridorClear = THREE.MathUtils.smoothstep(Math.abs(x), 11.5, 22.0);
+    const farHorizon = THREE.MathUtils.smoothstep(-worldZ, 34.0, 48.0);
+    const valleyMask = Math.min(1.0, corridorClear + farHorizon * 0.85);
+    const basinMask = THREE.MathUtils.smoothstep(distSummit, 4.2, 15.0) * valleyMask;
 
     const mountains =
       Math.abs(Math.sin(x * 0.16 + worldZ * 0.09)) * 4.8 +
@@ -45,7 +47,7 @@ export function buildVolcanicHorizonTerrain(): {
       Math.cos(x * 1.3 - worldZ * 1.1) * 0.28;
 
     const flankLift = Math.pow(Math.min(1, Math.abs(x) / 38), 1.4) * 5.2;
-    pos.setY(i, (mountains + flankLift) * basinMask - 0.5);
+    pos.setY(i, (mountains + flankLift) * basinMask - 0.55);
   }
   terrainGeo.computeVertexNormals();
 
@@ -165,17 +167,17 @@ export function buildSummitChamber(
     metalness: 0.55,
   });
 
-  // Dedicated transparent/opening material for the randomly Chosen Target Block we fly INSIDE
+  // Dedicated translucent/opening material for the randomly Chosen Target Block we fly INSIDE
   const chosenBlockMat = new THREE.MeshStandardMaterial({
     map: binaryTexA.map,
     emissive: new THREE.Color(0x00ffff),
     emissiveMap: binaryTexA.emissiveMap,
-    emissiveIntensity: 1.05,
-    roughness: 0.18,
+    emissiveIntensity: 0.68,
+    roughness: 0.22,
     metalness: 0.45,
     transparent: true,
     opacity: 0.94,
-    side: THREE.DoubleSide,
+    side: THREE.FrontSide,
   });
 
   const heroFrameGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.08, 1.08, 1.08));
@@ -311,35 +313,40 @@ export function buildSummitChamber(
   monumentGroup.add(satBlockGroup);
 
   const _vTarget = new THREE.Vector3();
-  const _chosenFocusPos = new THREE.Vector3(0, 0.0, 2.2);
+  // Chosen Block expands cleanly around CH.02 Neural Network at (0, 1.35, -20.0) world -> (0, -0.2, -20.0) local
+  const _chosenRoomPos = new THREE.Vector3(0, -0.2, -20.0);
+  const _chosenMidPos = new THREE.Vector3(0, 0.0, 0.5);
 
   return {
     root,
     update: (elapsed: number, pointerX: number, pointerY: number, explodeProgress: number) => {
       const exp = THREE.MathUtils.clamp(explodeProgress, 0, 1);
       const cursorBoost = Math.min(0.28, Math.hypot(pointerX, pointerY) * 0.24);
-      const slowExplode = Math.pow(exp, 0.85) * 6.4 + cursorBoost;
+      const slowExplode = Math.pow(exp, 0.85) * 8.2 + cursorBoost;
 
-      // Straighten monument cleanly as camera closes in on the Chosen Block
-      const rotScale = Math.max(0, 1 - exp * 1.45);
+      const rotScale = Math.max(0, 1 - exp * 1.6);
       monumentGroup.rotation.y = (elapsed * 0.08 + pointerX * 0.24) * rotScale;
       monumentGroup.rotation.x = pointerY * 0.12 * rotScale;
 
       for (let i = 0; i < cells.length; i++) {
         const c = cells[i];
         if (c.isChosen) {
-          // Chosen random block glides forward to dead center & scales up so camera flies INSIDE it!
-          c.livePos.lerpVectors(c.basePos, _chosenFocusPos, THREE.MathUtils.smoothstep(exp, 0.05, 0.55));
+          // Step 1: lock forward slightly; Step 2: expand into the huge glowing wireframe chamber enclosing CH.02!
+          const pMid = THREE.MathUtils.smoothstep(exp, 0.04, 0.35);
+          const pRoom = THREE.MathUtils.smoothstep(exp, 0.35, 0.95);
+          _vTarget.lerpVectors(c.basePos, _chosenMidPos, pMid);
+          c.livePos.lerpVectors(_vTarget, _chosenRoomPos, pRoom);
           c.group.position.copy(c.livePos);
-          const scaleUp = 1.0 + THREE.MathUtils.smoothstep(exp, 0.2, 0.95) * 4.8;
+
+          const scaleUp = 1.0 + pMid * 1.6 + pRoom * 22.5;
           c.group.scale.setScalar(scaleUp);
           c.group.rotation.set(
-            (1 - exp) * Math.sin(elapsed * 0.7) * 0.06,
-            (1 - exp) * Math.cos(elapsed * 0.6) * 0.08,
+            (1 - exp) * Math.sin(elapsed * 0.7) * 0.05,
+            (1 - exp) * Math.cos(elapsed * 0.6) * 0.06,
             0
           );
         } else {
-          // All other blocks slowly explode radially outward
+          // All other blocks slowly explode radially outward out of the flight corridor
           _vTarget.copy(c.basePos).addScaledVector(c.explodeDir, slowExplode);
           _vTarget.y += Math.sin(elapsed * 1.1 + i * 0.35) * 0.03;
           c.livePos.copy(_vTarget);
@@ -353,9 +360,11 @@ export function buildSummitChamber(
         }
       }
 
-      // Fade Chosen Block membrane smoothly as the camera dives through its front wall
-      chosenBlockMat.opacity = Math.max(0.14, 0.94 - THREE.MathUtils.smoothstep(exp, 0.55, 0.92) * 0.78);
-      chainMat.opacity = Math.max(0.12, 0.78 - exp * 0.55);
+      // Fade Chosen Block solid binary walls BEFORE camera crosses the threshold so view inside is crystal clear!
+      const wallFade = THREE.MathUtils.smoothstep(exp, 0.22, 0.56);
+      chosenBlockMat.opacity = Math.max(0.0, 0.94 * (1 - wallFade));
+      chosenBlockMat.visible = chosenBlockMat.opacity > 0.02;
+      chainMat.opacity = Math.max(0.08, 0.78 - exp * 0.62);
 
       for (let p = 0; p < chainPairs.length; p++) {
         const [aIdx, bIdx] = chainPairs[p];
@@ -636,30 +645,30 @@ export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
     a: number,
     b: number,
     offsetY: number,
-    scaleX: number,
+    heightScale: number,
     highlight = false
   ) => {
-    const tex = createNeuralMetricSpriteTexture(text, highlight);
+    const { tex, aspect } = createNeuralMetricSpriteTexture(text, highlight);
     const mat = new THREE.SpriteMaterial({
       map: tex,
       transparent: true,
-      opacity: 0.94,
+      opacity: 0.96,
       depthWrite: false,
     });
     const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(scaleX, scaleX * 0.25, 1);
+    sprite.scale.set(heightScale * aspect, heightScale, 1);
     root.add(sprite);
     disposables.push(tex, mat);
     metricSprites.push({ sprite, a, b, offsetY });
   };
 
-  // Layer headers & Neuron activation/bias readouts
-  addSpriteLabel('INPUT // x[0..7]', layerIndices[0][layerIndices[0].length - 1], -1, 1.05, 2.35, true);
-  addSpriteLabel('HIDDEN L1 // ReLU', layerIndices[1][layerIndices[1].length - 1], -1, 1.0, 2.35);
-  addSpriteLabel('NEURON_0x0A a=0.96', heroIdx, -1, 1.05, 2.55, true);
-  addSpriteLabel('b = +0.14 | σ(Σw·x)', heroIdx, -1, -1.02, 2.45);
-  addSpriteLabel('HIDDEN L3 // ATTN', layerIndices[3][layerIndices[3].length - 1], -1, 1.0, 2.35);
-  addSpriteLabel('OUTPUT // ŷ = 0.98', layerIndices[4][layerIndices[4].length - 1], -1, 1.05, 2.4, true);
+  // Layer headers & Neuron activation/bias readouts (never truncated!)
+  addSpriteLabel('INPUT // x[0..7]', layerIndices[0][layerIndices[0].length - 1], -1, 1.05, 0.52, true);
+  addSpriteLabel('HIDDEN L1 // ReLU', layerIndices[1][layerIndices[1].length - 1], -1, 1.0, 0.5);
+  addSpriteLabel('NEURON_0x0A  a=0.96', heroIdx, -1, 1.08, 0.56, true);
+  addSpriteLabel('b = +0.14 | σ(Σw·x)', heroIdx, -1, -1.04, 0.5);
+  addSpriteLabel('HIDDEN L3 // ATTN', layerIndices[3][layerIndices[3].length - 1], -1, 1.0, 0.5);
+  addSpriteLabel('OUTPUT // ŷ = 0.98', layerIndices[4][layerIndices[4].length - 1], -1, 1.05, 0.52, true);
 
   // Key synaptic weight numbers directly along highlighted filaments
   const sampleSynIndices = [
@@ -674,7 +683,14 @@ export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
     const syn = synapses[sIdx];
     if (!syn) return;
     const sign = syn.weight >= 0 ? '+' : '';
-    addSpriteLabel(`w = ${sign}${syn.weight.toFixed(2)}`, syn.a, syn.b, k % 2 === 0 ? 0.16 : -0.16, 1.65, syn.weight > 0.75);
+    addSpriteLabel(
+      `w = ${sign}${syn.weight.toFixed(2)}`,
+      syn.a,
+      syn.b,
+      k % 2 === 0 ? 0.18 : -0.18,
+      0.4,
+      syn.weight > 0.75
+    );
   });
 
   // 5. End-to-End Glowing Neural Energy Streams (Input -> L1 -> L2 -> L3 -> Output!)
@@ -734,13 +750,19 @@ export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
       elapsed: number,
       pointerX: number,
       pointerY: number,
+      revealFactor: number,
       mixFactor: number,
       enterNeuronFactor: number
     ) => {
+      const reveal = THREE.MathUtils.clamp(revealFactor, 0, 1);
+      root.visible = reveal > 0.01;
+      if (!root.visible) return;
+
       const mix = THREE.MathUtils.clamp(mixFactor, 0, 1);
       const enter = THREE.MathUtils.clamp(enterNeuronFactor, 0, 1);
 
       const tiltScale = 1 - enter * 0.88;
+      root.scale.setScalar(0.15 + reveal * 0.85);
       root.rotation.y = pointerX * 0.18 * tiltScale;
       root.rotation.x = pointerY * 0.1 * tiltScale;
 
