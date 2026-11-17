@@ -72,6 +72,7 @@ function sampleDetailedFlight(
   horizontalWarp: boolean;
   nearPlane: number;
   farPlane: number;
+  frontWallFade: number;
 } {
   const p = THREE.MathUtils.clamp(progress, 0, 1);
 
@@ -87,8 +88,10 @@ function sampleDetailedFlight(
 
   let warpIntensity = 0;
   let portalFlyProgress = 0;
-  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.28);
-  const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.12, 0.28);
+  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.3);
+  // Slowly fade the front 0/1 wall opacity & reveal the Neural Network smoothly between 0 and 1
+  const frontWallFade = THREE.MathUtils.smoothstep(p, 0.06, 0.34);
+  const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.06, 0.32);
 
   // Segment 1: CH.01 Chained 0/1 Blocks (0.00) -> 27 blocks explode slowly & camera shrinks inside Chosen Block (0.36)
   if (p <= DETAILED_CHAMBERS[1].scrollAt) {
@@ -117,6 +120,7 @@ function sampleDetailedFlight(
       horizontalWarp: true,
       nearPlane: THREE.MathUtils.lerp(0.1, 0.004, microBlend),
       farPlane: THREE.MathUtils.lerp(180, 42, microBlend),
+      frontWallFade,
     };
   }
 
@@ -152,6 +156,7 @@ function sampleDetailedFlight(
         horizontalWarp: true,
         nearPlane: THREE.MathUtils.lerp(0.004, 0.0016, eased),
         farPlane: THREE.MathUtils.lerp(42, 24, eased),
+        frontWallFade: 1,
       };
     } else if (u < 0.64) {
       // Phase 2B: Camera shrinks straight INSIDE Hero Round Neuron
@@ -176,6 +181,7 @@ function sampleDetailedFlight(
         horizontalWarp: true,
         nearPlane: 0.0012,
         farPlane: 18,
+        frontWallFade: 1,
       };
     } else {
       // Phase 2C: Exit out bottom/back of Chosen Block down subterranean shaft into CH.03 Iris Canyon
@@ -203,6 +209,7 @@ function sampleDetailedFlight(
         horizontalWarp: false,
         nearPlane: THREE.MathUtils.lerp(0.0012, 0.1, macroRestore),
         farPlane: THREE.MathUtils.lerp(18, 180, macroRestore),
+        frontWallFade: 1,
       };
     }
   }
@@ -234,6 +241,7 @@ function sampleDetailedFlight(
       horizontalWarp: false,
       nearPlane: 0.1,
       farPlane: 180,
+      frontWallFade: 1,
     };
   } else {
     const t = (u - 0.48) / 0.52;
@@ -260,6 +268,7 @@ function sampleDetailedFlight(
       horizontalWarp: false,
       nearPlane: 0.1,
       farPlane: 180,
+      frontWallFade: 1,
     };
   }
 }
@@ -599,6 +608,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         horizontalWarp,
         nearPlane,
         farPlane,
+        frontWallFade,
       } = sampleDetailedFlight(scrollRef.current, _camGoalPos, _camGoalTarget);
 
       if (
@@ -644,7 +654,13 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
 
       summitChamber.root.visible = camera.position.y > -6;
       if (summitChamber.root.visible) {
-        summitChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y, summitExplodeProgress);
+        summitChamber.update(
+          elapsed,
+          pointerSmooth.x,
+          pointerSmooth.y,
+          summitExplodeProgress,
+          frontWallFade
+        );
         driftChamber.update(
           elapsed,
           pointerSmooth.x,

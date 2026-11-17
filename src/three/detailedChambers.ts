@@ -178,36 +178,47 @@ export function buildSummitChamber(
     side: THREE.FrontSide,
   });
 
-  // Interior walls visible only when camera shrinks inside the Chosen Block (subtle 0/1 lining!)
+  // Interior walls inside the Chosen Block: sleek DARK obsidian with subtle dim 0/1 grid (zero white glare!)
   const chosenInnerMat = new THREE.MeshStandardMaterial({
+    color: 0x161f26,
     map: binaryTexA.map,
     emissive: new THREE.Color(0x00ffff),
     emissiveMap: binaryTexA.emissiveMap,
-    emissiveIntensity: 0.34,
-    roughness: 0.4,
-    metalness: 0.35,
+    emissiveIntensity: 0.065,
+    roughness: 0.9,
+    metalness: 0.05,
+    envMapIntensity: 0.06,
     side: THREE.FrontSide,
+  });
+
+  // Dedicated front (+Z) 0/1 wall that gradually lowers opacity during scroll instead of snapping away
+  const frontDoorMat = new THREE.MeshStandardMaterial({
+    map: binaryTexA.map,
+    emissive: new THREE.Color(0x00ffff),
+    emissiveMap: binaryTexA.emissiveMap,
+    emissiveIntensity: 0.78,
+    roughness: 0.24,
+    metalness: 0.52,
+    side: THREE.FrontSide,
+    transparent: true,
+    opacity: 1.0,
+    depthWrite: true,
   });
 
   const outerFaceGeo = new THREE.PlaneGeometry(0.82, 0.82);
   const innerFaceGeo = new THREE.PlaneGeometry(0.812, 0.812);
 
-  // Split front (+Z) face into left & right sliding 0/1 vault doors
-  const doorGeoL = new THREE.PlaneGeometry(0.41, 0.82);
-  const uvL = doorGeoL.attributes.uv;
-  for (let k = 0; k < uvL.count; k++) {
-    uvL.setX(k, uvL.getX(k) * 0.5);
-  }
-  const doorGeoR = new THREE.PlaneGeometry(0.41, 0.82);
-  const uvR = doorGeoR.attributes.uv;
-  for (let k = 0; k < uvR.count; k++) {
-    uvR.setX(k, 0.5 + uvR.getX(k) * 0.5);
-  }
-
   const chosenAnchor = new THREE.Group();
   chosenAnchor.scale.setScalar(0.036);
-  let leftDoor: THREE.Mesh | null = null;
-  let rightDoor: THREE.Mesh | null = null;
+  let frontDoorMesh: THREE.Mesh | null = null;
+
+  const chosenWireMat = new THREE.LineBasicMaterial({
+    color: 0x00ffff,
+    transparent: true,
+    opacity: 0.68,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
 
   const heroFrameGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.06, 1.06, 1.06));
   const heroFrameMat = new THREE.LineBasicMaterial({
@@ -221,15 +232,15 @@ export function buildSummitChamber(
     wireBoxGeo,
     wireEdgeGeo,
     wireEdgeMat,
+    chosenWireMat,
     blockGeo,
     blockMatA,
     blockMatB,
     chosenOuterMat,
     chosenInnerMat,
+    frontDoorMat,
     outerFaceGeo,
     innerFaceGeo,
-    doorGeoL,
-    doorGeoR,
     heroFrameGeo,
     heroFrameMat
   );
@@ -272,9 +283,8 @@ export function buildSummitChamber(
     const basePos = new THREE.Vector3(ix * 1.08, iy * 1.08, iz * 1.08);
     cellGroup.position.copy(basePos);
 
-    cellGroup.add(new THREE.LineSegments(wireEdgeGeo, wireEdgeMat));
-
     if (isChosen) {
+      cellGroup.add(new THREE.LineSegments(wireEdgeGeo, chosenWireMat));
       cellGroup.add(new THREE.LineSegments(heroFrameGeo, heroFrameMat));
 
       const half = 0.41;
@@ -308,16 +318,16 @@ export function buildSummitChamber(
         cellGroup.add(inWall);
       });
 
-      // Front (+Z) sliding 0/1 vault doors
-      leftDoor = new THREE.Mesh(doorGeoL, chosenOuterMat);
-      leftDoor.position.set(-0.205, 0, half);
-      rightDoor = new THREE.Mesh(doorGeoR, chosenOuterMat);
-      rightDoor.position.set(0.205, 0, half);
-      cellGroup.add(leftDoor, rightDoor);
+      // Front (+Z) 0/1 opening wall that gradually fades opacity as camera shrinks inside
+      frontDoorMesh = new THREE.Mesh(outerFaceGeo, frontDoorMat);
+      frontDoorMesh.position.set(0, 0, half);
+      frontDoorMesh.renderOrder = 10;
+      cellGroup.add(frontDoorMesh);
 
       // Mount anchor inside the Chosen Block where the Neural Network physically lives!
       cellGroup.add(chosenAnchor);
     } else {
+      cellGroup.add(new THREE.LineSegments(wireEdgeGeo, wireEdgeMat));
       const meshMat = idx % 2 === 0 ? blockMatA : blockMatB;
       const blockMesh = new THREE.Mesh(blockGeo, meshMat);
       cellGroup.add(blockMesh);
@@ -394,8 +404,15 @@ export function buildSummitChamber(
   return {
     root,
     chosenAnchor,
-    update: (elapsed: number, pointerX: number, pointerY: number, explodeProgress: number) => {
+    update: (
+      elapsed: number,
+      pointerX: number,
+      pointerY: number,
+      explodeProgress: number,
+      frontWallFade = 0
+    ) => {
       const exp = THREE.MathUtils.clamp(explodeProgress, 0, 1);
+      const doorFade = THREE.MathUtils.clamp(frontWallFade, 0, 1);
       const cursorBoost = Math.min(0.28, Math.hypot(pointerX, pointerY) * 0.24);
       const slowExplode = Math.pow(exp, 0.85) * 7.2 + cursorBoost;
 
@@ -430,15 +447,16 @@ export function buildSummitChamber(
         }
       }
 
-      // Slide the front 0/1 vault doors smoothly open as the shrunken camera approaches the doorway!
-      const doorOpen = THREE.MathUtils.smoothstep(exp, 0.32, 0.72) * 0.46;
-      if (leftDoor && rightDoor) {
-        leftDoor.position.x = -0.205 - doorOpen;
-        rightDoor.position.x = 0.205 + doorOpen;
-        const doorVis = doorOpen < 0.44;
-        leftDoor.visible = doorVis;
-        rightDoor.visible = doorVis;
+      // Gradually lower front 0/1 wall opacity as user scrolls so neural net emerges cleanly between 0 & 1
+      if (frontDoorMesh) {
+        const op = Math.max(0, 1 - doorFade);
+        frontDoorMat.opacity = op;
+        frontDoorMat.depthWrite = doorFade < 0.02;
+        frontDoorMat.emissiveIntensity = 0.78 * (1 - doorFade * 0.62);
+        frontDoorMesh.visible = op > 0.01;
       }
+      chosenWireMat.opacity = 0.68 * (1 - doorFade * 0.75);
+      heroFrameMat.opacity = 0.95 * (1 - doorFade * 0.78);
 
       chainMat.opacity = Math.max(0.06, 0.78 - exp * 0.68);
 
@@ -563,35 +581,34 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
   });
 
   // 1. Round Spherical Neuron Somas + Inner Glowing Nucleus + Equatorial Cyan Halo Rings
-  const somaGeo = new THREE.SphereGeometry(0.34, 20, 16);
-  const somaMat = new THREE.MeshPhysicalMaterial({
-    color: 0x0e1a20,
+  const somaGeo = new THREE.SphereGeometry(0.38, 20, 16);
+  const somaMat = new THREE.MeshStandardMaterial({
+    color: 0x0b2a34,
     emissive: new THREE.Color(0x00ffff),
-    emissiveIntensity: 0.28,
-    roughness: 0.14,
-    metalness: 0.25,
-    clearcoat: 1.0,
+    emissiveIntensity: 0.62,
+    roughness: 0.2,
+    metalness: 0.32,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.94,
     depthWrite: false,
   });
   const somaInstanced = new THREE.InstancedMesh(somaGeo, somaMat, neurons.length);
   root.add(somaInstanced);
 
-  const nucleusGeo = new THREE.SphereGeometry(0.14, 14, 12);
+  const nucleusGeo = new THREE.SphereGeometry(0.15, 14, 12);
   const nucleusMat = new THREE.MeshBasicMaterial({
-    color: 0xd8ffff,
+    color: 0xffffff,
     transparent: true,
-    opacity: 0.96,
+    opacity: 0.98,
   });
   const nucleusInstanced = new THREE.InstancedMesh(nucleusGeo, nucleusMat, neurons.length);
   root.add(nucleusInstanced);
 
-  const ringGeo = new THREE.TorusGeometry(0.42, 0.015, 8, 32);
+  const ringGeo = new THREE.TorusGeometry(0.48, 0.024, 8, 32);
   const ringMat = new THREE.MeshBasicMaterial({
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.78,
+    opacity: 0.94,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
@@ -599,12 +616,12 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
   root.add(ringInstanced);
 
   // Soft Pure Cyan halo glow behind every Round Neuron
-  const auraPlaneGeo = new THREE.PlaneGeometry(1.4, 1.4);
+  const auraPlaneGeo = new THREE.PlaneGeometry(1.65, 1.65);
   const auraPlaneMat = new THREE.MeshBasicMaterial({
     map: glowTex,
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.42,
+    opacity: 0.54,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
@@ -789,21 +806,21 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
   });
 
   const energyCount = Math.max(1, fullRoutes.length);
-  const energyHeadGeo = new THREE.SphereGeometry(0.11, 10, 10);
+  const energyHeadGeo = new THREE.SphereGeometry(0.15, 10, 10);
   const energyHeadMat = new THREE.MeshBasicMaterial({
-    color: 0xd8ffff,
+    color: 0xffffff,
     transparent: true,
     opacity: 0.98,
   });
   const energyHeads = new THREE.InstancedMesh(energyHeadGeo, energyHeadMat, energyCount);
   root.add(energyHeads);
 
-  const energyAuraGeo = new THREE.PlaneGeometry(0.75, 0.75);
+  const energyAuraGeo = new THREE.PlaneGeometry(0.95, 0.95);
   const energyAuraMat = new THREE.MeshBasicMaterial({
     map: glowTex,
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.92,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
@@ -840,9 +857,18 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
       const enter = THREE.MathUtils.clamp(enterNeuronFactor, 0, 1);
 
       const tiltScale = 1 - enter * 0.88;
-      root.scale.setScalar(0.15 + reveal * 0.85);
+      root.scale.setScalar(0.84 + reveal * 0.16);
       root.rotation.y = pointerX * 0.18 * tiltScale;
       root.rotation.x = pointerY * 0.1 * tiltScale;
+
+      // Smooth fade-in across all neural parts so network emerges gradually between 0 & 1
+      gridMat.opacity = 0.22 * reveal;
+      somaMat.opacity = 0.94 * reveal;
+      nucleusMat.opacity = 0.98 * reveal;
+      ringMat.opacity = 0.94 * reveal;
+      auraPlaneMat.opacity = 0.54 * reveal;
+      energyHeadMat.opacity = 0.98 * reveal;
+      energyAuraMat.opacity = 0.92 * reveal;
 
       for (let i = 0; i < neurons.length; i++) {
         const n = neurons[i];
@@ -904,11 +930,11 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
         heroRingA.rotation.z = elapsed * 0.65;
         heroRingB.rotation.y = -elapsed * 0.5;
         heroRingC.rotation.x = elapsed * 0.42;
-        heroOuterMat.opacity = Math.max(0.05, 0.36 - enter * 0.28);
-        heroRingAMat.opacity = Math.max(0.15, 0.88 - enter * 0.55);
+        heroOuterMat.opacity = Math.max(0.05, 0.44 - enter * 0.32) * reveal;
+        heroRingAMat.opacity = Math.max(0.15, 0.94 - enter * 0.55) * reveal;
         const coreFade = Math.max(0, 1 - THREE.MathUtils.smoothstep(enter, 0.55, 0.95));
-        heroCoreMat.opacity = 0.96 * coreFade;
-        heroGlowMat.opacity = 0.85 * coreFade;
+        heroCoreMat.opacity = 0.98 * coreFade * reveal;
+        heroGlowMat.opacity = 0.88 * coreFade * reveal;
       }
 
       // Sync synaptic connections
@@ -924,7 +950,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
         synPosArr[s * 6 + 5] = b.z;
       }
       synAttr.needsUpdate = true;
-      synMat.opacity = 0.4 + mix * 0.18 - enter * 0.18;
+      synMat.opacity = Math.max(0, 0.65 + mix * 0.16 - enter * 0.2) * reveal;
 
       // Update floating weight & activation number sprites
       for (let m = 0; m < metricSprites.length; m++) {
@@ -940,7 +966,8 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
             (pA.z + pB.z) * 0.5 + 0.15
           );
         }
-        (item.sprite.material as THREE.SpriteMaterial).opacity = Math.max(0, 0.94 - enter * 1.4);
+        (item.sprite.material as THREE.SpriteMaterial).opacity =
+          Math.max(0, 0.96 - enter * 1.4) * reveal;
       }
 
       // Animate continuous end-to-end energy waves from Layer 0 -> Layer 4

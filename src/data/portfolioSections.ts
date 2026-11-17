@@ -46,8 +46,8 @@ export const DETAILED_CHAMBERS: ChamberConfig[] = [
     camPos: [0.0, 1.56, 0.52],
     camTarget: [0.0, 1.55, 0.0],
     calloutOffsets: {
-      primary: [0.045, 1.58, -0.02],
-      secondary: [-0.22, 1.63, 0.0],
+      primary: [0.06, 1.38, -0.02],
+      secondary: [-0.26, 1.72, 0.0],
     },
     calloutPrimaryTitle: 'NEURON_0x0A // a=0.96',
     calloutPrimarySub: 'EXPLODE CASE STUDY · ENTER NEURON',
