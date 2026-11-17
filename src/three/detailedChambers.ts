@@ -1555,7 +1555,7 @@ export function buildPedestalChamber(
   root.add(topHalo);
 
   const graphGroup = new THREE.Group();
-  graphGroup.position.set(0, 0.35, 0);
+  graphGroup.position.set(0, 0.52, 0);
   root.add(graphGroup);
 
   const icoGeo = new THREE.IcosahedronGeometry(1.55, 1);
@@ -1565,7 +1565,7 @@ export function buildPedestalChamber(
   const graphWireMat = new THREE.LineBasicMaterial({
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.52,
+    opacity: 0.68,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
@@ -1632,17 +1632,17 @@ export function buildPedestalChamber(
   particleGeo.setAttribute('position', posAttr);
 
   const particleMat = new THREE.PointsMaterial({
-    size: 0.11,
+    size: 0.135,
     map: glowTex,
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.95,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     sizeAttenuation: true,
   });
   const particleCloud = new THREE.Points(particleGeo, particleMat);
-  particleCloud.position.set(0, 0.35, 0);
+  particleCloud.position.set(0, 0.52, 0);
   root.add(particleCloud);
 
   return {

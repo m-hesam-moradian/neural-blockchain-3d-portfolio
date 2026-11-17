@@ -49,6 +49,12 @@ export interface ResumeKeySkill {
   color: string; // Hex accent color for the orbiting planet & helical ribbon trail
 }
 
+export interface ResumeStageFigureInfo {
+  label: string;
+  title: string;
+  description: string;
+}
+
 export interface ResumeData {
   identity: {
     name: string;
@@ -70,6 +76,12 @@ export interface ResumeData {
   };
   /** Dynamic key skills rendered as orbiting planets in CH.03 (count & colors auto-adapt) */
   keySkills: ResumeKeySkill[];
+  /** Descriptive captions for the 3 morphing 3D figures on the CH.04 Pedestal */
+  stageFigures: {
+    blockchain: ResumeStageFigureInfo;
+    neural: ResumeStageFigureInfo;
+    helix: ResumeStageFigureInfo;
+  };
   projects: ResumeProject[];
   experience: ResumeExperience[];
 }
@@ -122,6 +134,26 @@ export const RESUME_DATA: ResumeData = {
     { name: 'CUDA Inference', color: '#F59E0B' },
     { name: 'TypeScript', color: '#38BDF8' },
   ],
+  stageFigures: {
+    blockchain: {
+      label: 'BLOCKCHAIN',
+      title: 'Consensus Lattice Core',
+      description:
+        'Cryptographic polyhedral mesh representing decentralized validator consensus and deterministic finality.',
+    },
+    neural: {
+      label: 'NEURAL',
+      title: 'Inference Wave Manifold',
+      description:
+        'Dynamic harmonic tensor field modeling quantized neural routing and parallel activation states.',
+    },
+    helix: {
+      label: 'HELIX',
+      title: 'Spatiotemporal Double Strand',
+      description:
+        'Interlocking twin data streams uniting real-time telemetry with resilient distributed systems.',
+    },
+  },
   projects: [
     {
       id: 'SYNAPSE_CHAIN',

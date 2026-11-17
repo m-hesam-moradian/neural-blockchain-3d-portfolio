@@ -91,32 +91,111 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
     }
   };
 
+  if (activeCard === 'contact') {
+    const activeFigure = RESUME_DATA.stageFigures[pedestalMode];
+    return (
+      <div
+        aria-live="polite"
+        style={{
+          opacity: revealAmount,
+          transform: `translate3d(0, ${((1 - enterT) * 14).toFixed(1)}px, 0)`,
+          willChange: 'transform, opacity',
+        }}
+        className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-end md:flex-row md:items-center md:justify-between px-5 pb-16 md:px-7 md:pb-0 gap-5"
+      >
+        {/* Left Margin: Cardless Stage Figure Selector & Live Description */}
+        <div className="pointer-events-none max-w-[275px] border-l-2 border-[#00FFFF]/80 pl-3.5 space-y-2">
+          <div className="pointer-events-auto flex flex-wrap items-center gap-2">
+            {PEDESTAL_MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => onSelectPedestalMode(m.id)}
+                className={`font-mono-hud text-[9.5px] tracking-wider pb-0.5 border-b transition-colors cursor-pointer ${
+                  pedestalMode === m.id
+                    ? 'border-[#00FFFF] text-[#00FFFF]'
+                    : 'border-transparent text-[#8A929A] hover:text-[#FFFFFF]'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-display-hud text-sm font-medium text-[#FFFFFF]">
+              {activeFigure.title}
+            </h3>
+            <p className="text-[11.5px] leading-relaxed text-[#B8C2CC]">
+              {activeFigure.description}
+            </p>
+          </div>
+        </div>
+
+        {/* Right Margin: Cardless Direct Contact Uplink */}
+        <div className="pointer-events-none max-w-[275px] flex flex-col items-start md:items-end md:text-right border-l-2 md:border-l-0 md:border-r-2 border-[#00FFFF]/80 pl-3.5 md:pl-0 md:pr-3.5 space-y-2">
+          <div className="space-y-0.5">
+            <p className="font-mono-hud text-[9.5px] tracking-widest text-[#00FFFF]">
+              {RESUME_DATA.identity.availability}
+            </p>
+            <p className="font-mono-hud text-[10px] text-[#8A929A]">
+              {RESUME_DATA.identity.location}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyEmail}
+            className="pointer-events-auto inline-flex items-center gap-2 font-mono-hud text-xs text-[#FFFFFF] hover:text-[#00FFFF] transition-colors cursor-pointer"
+          >
+            <span className="truncate">{RESUME_DATA.identity.email}</span>
+            <span className="text-[9.5px] text-[#00FFFF] inline-flex items-center gap-1 shrink-0">
+              {copiedEmail ? (
+                <>
+                  <Check className="w-3 h-3" /> COPIED
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" /> COPY
+                </>
+              )}
+            </span>
+          </button>
+          <div className="pointer-events-auto flex items-center gap-3 font-mono-hud text-[10px]">
+            <a
+              href={RESUME_DATA.identity.githubUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[#B8C2CC] hover:text-[#00FFFF] transition-colors"
+            >
+              GITHUB <ArrowUpRight className="w-3 h-3" />
+            </a>
+            <a
+              href={RESUME_DATA.identity.linkedinUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[#B8C2CC] hover:text-[#00FFFF] transition-colors"
+            >
+              LINKEDIN <ArrowUpRight className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const cardWidthClass =
     activeCard === 'work'
       ? 'w-full md:w-[48%] lg:w-[45%] max-w-[560px]'
-      : activeCard === 'about'
-        ? 'w-full md:w-[45%] lg:w-[42%] max-w-[490px]'
-        : 'w-full max-w-lg';
+      : 'w-full md:w-[45%] lg:w-[42%] max-w-[490px]';
 
-  const isRightDocked = activeCard === 'work' || activeCard === 'about';
-
-  const wrapperAlignClass = isRightDocked
-    ? 'justify-center md:justify-end md:pr-8 lg:pr-12'
-    : 'justify-center';
+  const wrapperAlignClass = 'justify-center md:justify-end md:pr-8 lg:pr-12';
 
   const animStyle: React.CSSProperties = {
     opacity: revealAmount,
-    transform: isRightDocked
-      ? `translate3d(${((1 - enterT) * 22 - exitT * 18).toFixed(1)}px, 0, 0) scale(${(
-          0.96 +
-          0.04 * enterT +
-          0.015 * exitT
-        ).toFixed(4)})`
-      : `translate3d(0, ${((1 - enterT) * 16 - exitT * 14).toFixed(1)}px, 0) scale(${(
-          0.95 +
-          0.05 * enterT +
-          0.025 * exitT
-        ).toFixed(4)})`,
+    transform: `translate3d(${((1 - enterT) * 22 - exitT * 18).toFixed(1)}px, 0, 0) scale(${(
+      0.96 +
+      0.04 * enterT +
+      0.015 * exitT
+    ).toFixed(4)})`,
     willChange: 'transform, opacity',
   };
 
@@ -258,86 +337,6 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                     </p>
                     <p className="text-[10.5px] leading-snug text-[#B8C2CC]">{exp.detail}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================================================================= */}
-        {/* CH.04 // CONTACT — Direct Uplink & Pedestal Mode Switcher         */}
-        {/* ================================================================= */}
-        {activeCard === 'contact' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[#8A929A]/20 pb-3">
-              <div>
-                <p className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF]">
-                  DIRECT UPLINK // {RESUME_DATA.identity.availability}
-                </p>
-                <h2 className="font-display-hud text-lg font-medium text-[#FFFFFF] mt-0.5">
-                  {RESUME_DATA.identity.name}
-                </h2>
-              </div>
-              <span className="font-mono-hud text-[10px] text-[#8A929A]">
-                {RESUME_DATA.identity.location}
-              </span>
-            </div>
-
-            <div className="pointer-events-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCopyEmail}
-                className="flex-1 flex items-center justify-between border border-[#00FFFF]/50 bg-[#00FFFF]/10 px-3 py-2 font-mono-hud text-xs text-[#00FFFF] hover:bg-[#00FFFF]/20 transition-colors cursor-pointer"
-              >
-                <span className="truncate">{RESUME_DATA.identity.email}</span>
-                <span className="inline-flex items-center gap-1 ml-2 shrink-0 text-[10px]">
-                  {copiedEmail ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" /> COPIED
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" /> COPY
-                    </>
-                  )}
-                </span>
-              </button>
-              <a
-                href={RESUME_DATA.identity.githubUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 border border-[#8A929A]/35 px-3 py-2 font-mono-hud text-xs text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors"
-              >
-                GITHUB <ArrowUpRight className="w-3.5 h-3.5" />
-              </a>
-              <a
-                href={RESUME_DATA.identity.linkedinUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 border border-[#8A929A]/35 px-3 py-2 font-mono-hud text-xs text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors"
-              >
-                LINKEDIN <ArrowUpRight className="w-3.5 h-3.5" />
-              </a>
-            </div>
-
-            <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#8A929A]/20">
-              <span className="font-mono-hud text-[9px] tracking-widest text-[#8A929A]">
-                STAGE HOLOGRAM
-              </span>
-              <div className="flex items-center gap-1.5">
-                {PEDESTAL_MODES.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => onSelectPedestalMode(m.id)}
-                    className={`font-mono-hud text-[10px] px-2 py-0.5 border transition-colors cursor-pointer ${
-                      pedestalMode === m.id
-                        ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
-                        : 'border-[#8A929A]/30 text-[#8A929A] hover:text-[#FFFFFF]'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
                 ))}
               </div>
             </div>
