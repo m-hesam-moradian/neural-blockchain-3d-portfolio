@@ -209,7 +209,7 @@ export function buildSummitChamber(
   const innerFaceGeo = new THREE.PlaneGeometry(0.812, 0.812);
 
   const chosenAnchor = new THREE.Group();
-  chosenAnchor.scale.setScalar(0.036);
+  chosenAnchor.scale.setScalar(0.026);
   let frontDoorMesh: THREE.Mesh | null = null;
 
   const chosenWireMat = new THREE.LineBasicMaterial({
@@ -353,10 +353,9 @@ export function buildSummitChamber(
     });
   });
 
-  // Cryptographic Chain Links connecting all 28 blocks (including inside center block!)
+  // 3D Interlocking Wireframe Cyan Chain Links (zero thin strings!) connecting adjacent blocks
   const chainPairs: [number, number][] = [];
   for (let i = 0; i < cells.length; i++) {
-    if (i < cells.length - 1) chainPairs.push([i, i + 1]);
     for (let j = i + 1; j < cells.length; j++) {
       const d = cells[i].basePos.distanceTo(cells[j].basePos);
       if (d > 0.5 && d < 1.25) {
@@ -365,30 +364,48 @@ export function buildSummitChamber(
     }
   }
 
-  const chainPositions = new Float32Array(chainPairs.length * 6);
-  const chainGeo = new THREE.BufferGeometry();
-  const chainAttr = new THREE.BufferAttribute(chainPositions, 3);
-  chainAttr.setUsage(THREE.DynamicDrawUsage);
-  chainGeo.setAttribute('position', chainAttr);
-  const chainMat = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
+  // Build stadium/oval link curve along X axis (matching reference wireframe chain)
+  const linkPts: THREE.Vector3[] = [];
+  const halfStraight = 0.075;
+  const arcRadius = 0.052;
+  const arcSegs = 8;
+  for (let s = 0; s <= arcSegs; s++) {
+    const a = Math.PI / 2 - (s / arcSegs) * Math.PI;
+    linkPts.push(new THREE.Vector3(halfStraight + Math.cos(a) * arcRadius, Math.sin(a) * arcRadius, 0));
+  }
+  for (let s = 0; s <= arcSegs; s++) {
+    const a = -Math.PI / 2 - (s / arcSegs) * Math.PI;
+    linkPts.push(new THREE.Vector3(-halfStraight + Math.cos(a) * arcRadius, Math.sin(a) * arcRadius, 0));
+  }
+  const linkCurve = new THREE.CatmullRomCurve3(linkPts, true, 'centripetal', 0.2);
+  const chainLinkGeo = new THREE.TubeGeometry(linkCurve, 28, 0.02, 8, true);
+
+  const chainCoreMat = new THREE.MeshStandardMaterial({
+    color: 0x091318,
+    roughness: 0.42,
+    metalness: 0.78,
     transparent: true,
-    opacity: 0.78,
+    opacity: 0.86,
+  });
+  const chainWireMat = new THREE.MeshBasicMaterial({
+    color: 0x00ffff,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.62,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  monumentGroup.add(new THREE.LineSegments(chainGeo, chainMat));
-  disposables.push(chainGeo, chainMat);
 
-  // Small chained data-packet nodes pulsing along the links between blocks
-  const linkNodeGeo = new THREE.BoxGeometry(0.11, 0.11, 0.11);
-  const linkNodeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-  const linkNodeCount = Math.min(40, chainPairs.length);
-  const linkNodes = new THREE.InstancedMesh(linkNodeGeo, linkNodeMat, linkNodeCount);
-  monumentGroup.add(linkNodes);
-  disposables.push(linkNodeGeo, linkNodeMat);
+  const linksPerBond = 3; // Alternating 0° / 90° interlocking links per pair
+  const totalChainLinks = chainPairs.length * linksPerBond;
+  const chainCoreInstanced = new THREE.InstancedMesh(chainLinkGeo, chainCoreMat, totalChainLinks);
+  const chainWireInstanced = new THREE.InstancedMesh(chainLinkGeo, chainWireMat, totalChainLinks);
+  chainCoreInstanced.frustumCulled = false;
+  chainWireInstanced.frustumCulled = false;
+  monumentGroup.add(chainCoreInstanced, chainWireInstanced);
+  disposables.push(chainLinkGeo, chainCoreMat, chainWireMat);
 
-  // Orbiting satellite binary block on upper-left
+  // Orbiting satellite binary block on upper-left (gentle slow rotation)
   const satBlockGroup = new THREE.Group();
   const satMesh = new THREE.Mesh(blockGeo, blockMatA);
   satMesh.scale.setScalar(0.54);
@@ -398,6 +415,11 @@ export function buildSummitChamber(
   monumentGroup.add(satBlockGroup);
 
   const _vTarget = new THREE.Vector3();
+  const _bondDir = new THREE.Vector3();
+  const _bondMid = new THREE.Vector3();
+  const _axisX = new THREE.Vector3(1, 0, 0);
+  const _quatAlign = new THREE.Quaternion();
+  const _quatTwist = new THREE.Quaternion();
   // Chosen Block glides gently to monument center (0, 0, 0) local = (0, 1.55, 0) world, KEEPING real 1.0x size!
   const _chosenCenter = new THREE.Vector3(0, 0, 0);
 
@@ -413,36 +435,35 @@ export function buildSummitChamber(
     ) => {
       const exp = THREE.MathUtils.clamp(explodeProgress, 0, 1);
       const doorFade = THREE.MathUtils.clamp(frontWallFade, 0, 1);
-      const cursorBoost = Math.min(0.28, Math.hypot(pointerX, pointerY) * 0.24);
+      const cursorBoost = Math.min(0.24, Math.hypot(pointerX, pointerY) * 0.18);
       const slowExplode = Math.pow(exp, 0.85) * 7.2 + cursorBoost;
 
+      // Calm, slow architectural drift instead of fast spinning
       const rotScale = Math.max(0, 1 - exp * 1.65);
-      monumentGroup.rotation.y = (elapsed * 0.08 + pointerX * 0.24) * rotScale;
-      monumentGroup.rotation.x = pointerY * 0.12 * rotScale;
+      monumentGroup.rotation.y = (elapsed * 0.022 + pointerX * 0.18) * rotScale;
+      monumentGroup.rotation.x = pointerY * 0.08 * rotScale;
 
       for (let i = 0; i < cells.length; i++) {
         const c = cells[i];
         if (c.isChosen) {
-          // Chosen Block locks dead-center at real 1.0x size — CAMERA shrinks inside it!
           c.livePos.lerpVectors(c.basePos, _chosenCenter, THREE.MathUtils.smoothstep(exp, 0.04, 0.45));
           c.group.position.copy(c.livePos);
           c.group.scale.setScalar(1.0);
           c.group.rotation.set(
-            (1 - exp) * Math.sin(elapsed * 0.7) * 0.05,
-            (1 - exp) * Math.cos(elapsed * 0.6) * 0.06,
+            (1 - exp) * Math.sin(elapsed * 0.35) * 0.03,
+            (1 - exp) * Math.cos(elapsed * 0.3) * 0.035,
             0
           );
         } else {
-          // All other 27 blocks slowly explode outward
           _vTarget.copy(c.basePos).addScaledVector(c.explodeDir, slowExplode);
-          _vTarget.y += Math.sin(elapsed * 1.1 + i * 0.35) * 0.03;
+          _vTarget.y += Math.sin(elapsed * 0.7 + i * 0.35) * 0.025;
           c.livePos.copy(_vTarget);
           c.group.position.copy(_vTarget);
           c.group.scale.setScalar(1.0);
           c.group.rotation.set(
-            c.rotSeed.x * slowExplode * 0.32,
-            c.rotSeed.y * slowExplode * 0.32,
-            c.rotSeed.z * slowExplode * 0.26
+            c.rotSeed.x * slowExplode * 0.14,
+            c.rotSeed.y * slowExplode * 0.14,
+            c.rotSeed.z * slowExplode * 0.12
           );
         }
       }
@@ -458,39 +479,49 @@ export function buildSummitChamber(
       chosenWireMat.opacity = 0.68 * (1 - doorFade * 0.75);
       heroFrameMat.opacity = 0.95 * (1 - doorFade * 0.78);
 
-      chainMat.opacity = Math.max(0.06, 0.78 - exp * 0.68);
+      // Update interlocking 3D chains between adjacent blocks, fading gracefully during block explosion
+      const chainFade = Math.max(0, 1 - exp * 1.45);
+      chainWireMat.opacity = 0.62 * chainFade;
+      chainCoreMat.opacity = 0.86 * chainFade;
+      chainCoreInstanced.visible = chainFade > 0.02;
+      chainWireInstanced.visible = chainFade > 0.02;
 
-      for (let p = 0; p < chainPairs.length; p++) {
-        const [aIdx, bIdx] = chainPairs[p];
-        const a = cells[aIdx].livePos;
-        const b = cells[bIdx].livePos;
-        chainPositions[p * 6] = a.x;
-        chainPositions[p * 6 + 1] = a.y;
-        chainPositions[p * 6 + 2] = a.z;
-        chainPositions[p * 6 + 3] = b.x;
-        chainPositions[p * 6 + 4] = b.y;
-        chainPositions[p * 6 + 5] = b.z;
-      }
-      chainAttr.needsUpdate = true;
+      if (chainFade > 0.02) {
+        let linkIdx = 0;
+        for (let p = 0; p < chainPairs.length; p++) {
+          const [aIdx, bIdx] = chainPairs[p];
+          const a = cells[aIdx].livePos;
+          const b = cells[bIdx].livePos;
+          _bondDir.subVectors(b, a);
+          const dist = Math.max(0.001, _bondDir.length());
+          _bondDir.divideScalar(dist);
+          _bondMid.addVectors(a, b).multiplyScalar(0.5);
+          _quatAlign.setFromUnitVectors(_axisX, _bondDir);
 
-      for (let i = 0; i < linkNodeCount; i++) {
-        const [aIdx, bIdx] = chainPairs[i];
-        const t = (elapsed * 0.8 + i * 0.13) % 1;
-        dummy.position.lerpVectors(cells[aIdx].livePos, cells[bIdx].livePos, t);
-        dummy.rotation.set(elapsed, elapsed * 0.7, 0);
-        dummy.scale.setScalar(Math.max(0.05, 1 - exp * 0.9));
-        dummy.updateMatrix();
-        linkNodes.setMatrixAt(i, dummy.matrix);
+          const spacing = 0.155 + exp * 0.12;
+          for (let k = 0; k < linksPerBond; k++) {
+            const offset = (k - 1) * spacing;
+            dummy.position.copy(_bondMid).addScaledVector(_bondDir, offset);
+            _quatTwist.setFromAxisAngle(_axisX, (k % 2) * (Math.PI / 2));
+            dummy.quaternion.copy(_quatAlign).multiply(_quatTwist);
+            dummy.scale.set(1.0, 1.0, 1.0);
+            dummy.updateMatrix();
+            chainCoreInstanced.setMatrixAt(linkIdx, dummy.matrix);
+            chainWireInstanced.setMatrixAt(linkIdx, dummy.matrix);
+            linkIdx++;
+          }
+        }
+        chainCoreInstanced.instanceMatrix.needsUpdate = true;
+        chainWireInstanced.instanceMatrix.needsUpdate = true;
       }
-      linkNodes.instanceMatrix.needsUpdate = true;
 
       satBlockGroup.position.set(
-        -3.25 + Math.cos(elapsed * 0.6) * 0.25 - exp * 3.0,
-        1.48 + Math.sin(elapsed * 0.9) * 0.18 + exp * 1.4,
+        -3.25 + Math.cos(elapsed * 0.35) * 0.22 - exp * 3.0,
+        1.48 + Math.sin(elapsed * 0.5) * 0.14 + exp * 1.4,
         0.55
       );
-      satBlockGroup.rotation.y = elapsed * 0.65;
-      satBlockGroup.rotation.x = Math.sin(elapsed * 0.4) * 0.25;
+      satBlockGroup.rotation.y = elapsed * 0.14;
+      satBlockGroup.rotation.x = Math.sin(elapsed * 0.25) * 0.15;
     },
     dispose: () => {
       disposables.forEach((d) => d.dispose());
@@ -580,53 +611,57 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
     layerIndices.push(indices);
   });
 
-  // 1. Round Spherical Neuron Somas + Inner Glowing Nucleus + Equatorial Cyan Halo Rings
-  const somaGeo = new THREE.SphereGeometry(0.38, 20, 16);
+  // 1. Round Spherical Neuron Somas + Inner Nucleus + Delicate Halo Rings (crisp, non-blinding)
+  const somaGeo = new THREE.SphereGeometry(0.36, 20, 16);
   const somaMat = new THREE.MeshStandardMaterial({
-    color: 0x0b2a34,
+    color: 0x071920,
     emissive: new THREE.Color(0x00ffff),
-    emissiveIntensity: 0.62,
-    roughness: 0.2,
-    metalness: 0.32,
+    emissiveIntensity: 0.22,
+    roughness: 0.28,
+    metalness: 0.35,
     transparent: true,
-    opacity: 0.94,
+    opacity: 0.88,
     depthWrite: false,
   });
   const somaInstanced = new THREE.InstancedMesh(somaGeo, somaMat, neurons.length);
+  somaInstanced.frustumCulled = false;
   root.add(somaInstanced);
 
-  const nucleusGeo = new THREE.SphereGeometry(0.15, 14, 12);
+  const nucleusGeo = new THREE.SphereGeometry(0.095, 14, 12);
   const nucleusMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+    color: 0x00ffff,
     transparent: true,
-    opacity: 0.98,
+    opacity: 0.9,
   });
   const nucleusInstanced = new THREE.InstancedMesh(nucleusGeo, nucleusMat, neurons.length);
+  nucleusInstanced.frustumCulled = false;
   root.add(nucleusInstanced);
 
-  const ringGeo = new THREE.TorusGeometry(0.48, 0.024, 8, 32);
+  const ringGeo = new THREE.TorusGeometry(0.44, 0.013, 8, 32);
   const ringMat = new THREE.MeshBasicMaterial({
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.94,
+    opacity: 0.55,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
   const ringInstanced = new THREE.InstancedMesh(ringGeo, ringMat, neurons.length);
+  ringInstanced.frustumCulled = false;
   root.add(ringInstanced);
 
-  // Soft Pure Cyan halo glow behind every Round Neuron
-  const auraPlaneGeo = new THREE.PlaneGeometry(1.65, 1.65);
+  // Subtle Soft Pure Cyan aura behind every Round Neuron (kept low so neurons stay sharp)
+  const auraPlaneGeo = new THREE.PlaneGeometry(1.05, 1.05);
   const auraPlaneMat = new THREE.MeshBasicMaterial({
     map: glowTex,
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.54,
+    opacity: 0.16,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
   const auraInstanced = new THREE.InstancedMesh(auraPlaneGeo, auraPlaneMat, neurons.length);
+  auraInstanced.frustumCulled = false;
   root.add(auraInstanced);
 
   disposables.push(somaGeo, somaMat, nucleusGeo, nucleusMat, ringGeo, ringMat, auraPlaneGeo, auraPlaneMat);
@@ -637,14 +672,14 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
 
   const heroOuterGeo = new THREE.SphereGeometry(0.68, 28, 22);
   const heroOuterMat = new THREE.MeshPhysicalMaterial({
-    color: 0x0e1d24,
+    color: 0x071a22,
     emissive: new THREE.Color(0x00ffff),
-    emissiveIntensity: 0.35,
-    roughness: 0.1,
-    metalness: 0.2,
+    emissiveIntensity: 0.18,
+    roughness: 0.14,
+    metalness: 0.25,
     clearcoat: 1.0,
     transparent: true,
-    opacity: 0.36,
+    opacity: 0.26,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
@@ -652,11 +687,11 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
   heroOuterSphere.renderOrder = 6;
   heroGroup.add(heroOuterSphere);
 
-  const heroRingAGeo = new THREE.TorusGeometry(0.76, 0.018, 10, 48);
+  const heroRingAGeo = new THREE.TorusGeometry(0.76, 0.012, 10, 48);
   const heroRingAMat = new THREE.MeshBasicMaterial({
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.88,
+    opacity: 0.62,
     blending: THREE.AdditiveBlending,
   });
   const heroRingA = new THREE.Mesh(heroRingAGeo, heroRingAMat);
@@ -666,11 +701,11 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
   heroRingC.rotation.y = Math.PI / 2;
   heroGroup.add(heroRingA, heroRingB, heroRingC);
 
-  const heroCoreGeo = new THREE.SphereGeometry(0.22, 18, 14);
+  const heroCoreGeo = new THREE.SphereGeometry(0.15, 18, 14);
   const heroCoreMat = new THREE.MeshBasicMaterial({
-    color: 0xd8ffff,
+    color: 0x00ffff,
     transparent: true,
-    opacity: 0.96,
+    opacity: 0.82,
   });
   heroGroup.add(new THREE.Mesh(heroCoreGeo, heroCoreMat));
 
@@ -678,12 +713,12 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
     map: glowTex,
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.32,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
   const heroGlow = new THREE.Sprite(heroGlowMat);
-  heroGlow.scale.set(2.2, 2.2, 1);
+  heroGlow.scale.set(1.3, 1.3, 1);
   heroGroup.add(heroGlow);
 
   disposables.push(heroOuterGeo, heroOuterMat, heroRingAGeo, heroRingAMat, heroCoreGeo, heroCoreMat, heroGlowMat);
@@ -757,13 +792,13 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
     metricSprites.push({ sprite, a, b, offsetY });
   };
 
-  // Layer headers & Neuron activation/bias readouts (never truncated!)
-  addSpriteLabel('INPUT // x[0..7]', layerIndices[0][layerIndices[0].length - 1], -1, 1.05, 0.52, true);
-  addSpriteLabel('HIDDEN L1 // ReLU', layerIndices[1][layerIndices[1].length - 1], -1, 1.0, 0.5);
-  addSpriteLabel('NEURON_0x0A  a=0.96', heroIdx, -1, 1.08, 0.56, true);
-  addSpriteLabel('b = +0.14 | σ(Σw·x)', heroIdx, -1, -1.04, 0.5);
-  addSpriteLabel('HIDDEN L3 // ATTN', layerIndices[3][layerIndices[3].length - 1], -1, 1.0, 0.5);
-  addSpriteLabel('OUTPUT // ŷ = 0.98', layerIndices[4][layerIndices[4].length - 1], -1, 1.05, 0.52, true);
+  // Layer headers & Neuron activation/bias readouts (never truncated, sleek micro size)
+  addSpriteLabel('INPUT // x[0..7]', layerIndices[0][layerIndices[0].length - 1], -1, 1.05, 0.42, true);
+  addSpriteLabel('HIDDEN L1 // ReLU', layerIndices[1][layerIndices[1].length - 1], -1, 1.0, 0.4);
+  addSpriteLabel('NEURON_0x0A  a=0.96', heroIdx, -1, 1.05, 0.45, true);
+  addSpriteLabel('b = +0.14 | σ(Σw·x)', heroIdx, -1, -1.0, 0.4);
+  addSpriteLabel('HIDDEN L3 // ATTN', layerIndices[3][layerIndices[3].length - 1], -1, 1.0, 0.4);
+  addSpriteLabel('OUTPUT // ŷ = 0.98', layerIndices[4][layerIndices[4].length - 1], -1, 1.05, 0.42, true);
 
   // Key synaptic weight numbers directly along highlighted filaments
   const sampleSynIndices = [
@@ -783,56 +818,63 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
       syn.a,
       syn.b,
       k % 2 === 0 ? 0.18 : -0.18,
-      0.4,
+      0.34,
       syn.weight > 0.75
     );
   });
 
-  // 5. End-to-End Glowing Neural Energy Streams (Input -> L1 -> L2 -> L3 -> Output!)
-  // Every energy stream follows a complete 5-neuron route all the way from start to end
-  const fullRoutes: number[][] = [];
-  layerIndices[0].forEach((n0) => {
-    for (let copy = 0; copy < 6; copy++) {
-      const route = [n0];
-      let curr = n0;
-      for (let step = 0; step < 4; step++) {
-        const nexts = adjNext[curr];
-        if (!nexts || nexts.length === 0) break;
-        curr = nexts[Math.floor(rng() * nexts.length)];
-        route.push(curr);
-      }
-      if (route.length === 5) fullRoutes.push(route);
+  // 5. Sparse Random End-to-End Neural Data Pulses (only 3 active at once, picking random routes all the way out!)
+  const pickRandomRoute = (): number[] => {
+    const inputs = layerIndices[0];
+    let curr = inputs[Math.floor(Math.random() * inputs.length)];
+    const route = [curr];
+    for (let step = 0; step < 4; step++) {
+      const nexts = adjNext[curr];
+      if (!nexts || nexts.length === 0) break;
+      curr = nexts[Math.floor(Math.random() * nexts.length)];
+      route.push(curr);
     }
-  });
+    return route.length === 5
+      ? route
+      : [
+          inputs[0],
+          layerIndices[1][0],
+          layerIndices[2][0],
+          layerIndices[3][0],
+          layerIndices[4][0],
+        ];
+  };
 
-  const energyCount = Math.max(1, fullRoutes.length);
-  const energyHeadGeo = new THREE.SphereGeometry(0.15, 10, 10);
+  const energyCount = 3;
+  const energyHeadGeo = new THREE.SphereGeometry(0.095, 10, 10);
   const energyHeadMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+    color: 0xd8ffff,
     transparent: true,
-    opacity: 0.98,
+    opacity: 0.92,
   });
   const energyHeads = new THREE.InstancedMesh(energyHeadGeo, energyHeadMat, energyCount);
+  energyHeads.frustumCulled = false;
   root.add(energyHeads);
 
-  const energyAuraGeo = new THREE.PlaneGeometry(0.95, 0.95);
+  const energyAuraGeo = new THREE.PlaneGeometry(0.48, 0.48);
   const energyAuraMat = new THREE.MeshBasicMaterial({
     map: glowTex,
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.58,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
   const energyAuras = new THREE.InstancedMesh(energyAuraGeo, energyAuraMat, energyCount);
+  energyAuras.frustumCulled = false;
   root.add(energyAuras);
 
-  const energyMeta = fullRoutes.map((route) => ({
-    route,
-    speed: 0.22 + rng() * 0.18,
-    offset: rng(),
-  }));
+  const energyMeta = [
+    { route: pickRandomRoute(), speed: 0.17, offset: 0.05, prevCycle: 0 },
+    { route: pickRandomRoute(), speed: 0.21, offset: 0.39, prevCycle: 0 },
+    { route: pickRandomRoute(), speed: 0.15, offset: 0.72, prevCycle: 0 },
+  ];
 
   disposables.push(energyHeadGeo, energyHeadMat, energyAuraGeo, energyAuraMat);
 
@@ -858,26 +900,26 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
 
       const tiltScale = 1 - enter * 0.88;
       root.scale.setScalar(0.84 + reveal * 0.16);
-      root.rotation.y = pointerX * 0.18 * tiltScale;
-      root.rotation.x = pointerY * 0.1 * tiltScale;
+      root.rotation.y = pointerX * 0.16 * tiltScale;
+      root.rotation.x = pointerY * 0.09 * tiltScale;
 
-      // Smooth fade-in across all neural parts so network emerges gradually between 0 & 1
-      gridMat.opacity = 0.22 * reveal;
-      somaMat.opacity = 0.94 * reveal;
-      nucleusMat.opacity = 0.98 * reveal;
-      ringMat.opacity = 0.94 * reveal;
-      auraPlaneMat.opacity = 0.54 * reveal;
-      energyHeadMat.opacity = 0.98 * reveal;
-      energyAuraMat.opacity = 0.92 * reveal;
+      // Smooth fade-in across all neural parts with subtle balanced luminance (zero neon blowout)
+      gridMat.opacity = 0.2 * reveal;
+      somaMat.opacity = 0.88 * reveal;
+      nucleusMat.opacity = 0.9 * reveal;
+      ringMat.opacity = 0.55 * reveal;
+      auraPlaneMat.opacity = 0.16 * reveal;
+      energyHeadMat.opacity = 0.92 * reveal;
+      energyAuraMat.opacity = 0.58 * reveal;
 
       for (let i = 0; i < neurons.length; i++) {
         const n = neurons[i];
         n.livePos.lerpVectors(n.orderedPos, n.mixedPos, mix);
 
         if (!n.isHero) {
-          const swirlAmp = 0.06 + mix * 0.26;
-          n.livePos.y += Math.sin(elapsed * 1.4 + n.phase) * swirlAmp;
-          n.livePos.z += Math.cos(elapsed * 1.1 + n.phase) * swirlAmp * 0.65;
+          const swirlAmp = 0.05 + mix * 0.24;
+          n.livePos.y += Math.sin(elapsed * 1.1 + n.phase) * swirlAmp;
+          n.livePos.z += Math.cos(elapsed * 0.9 + n.phase) * swirlAmp * 0.65;
 
           if (enter > 0.01) {
             const len = Math.max(0.01, Math.hypot(n.livePos.x, n.livePos.y));
@@ -885,7 +927,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
             n.livePos.y += (n.livePos.y / len) * enter * 1.1;
           }
 
-          const pulse = 1.0 + Math.sin(elapsed * 2.8 + n.phase) * 0.12;
+          const pulse = 1.0 + Math.sin(elapsed * 2.2 + n.phase) * 0.1;
           dummy.position.copy(n.livePos);
           dummy.rotation.set(0, 0, 0);
           dummy.scale.setScalar(1.0);
@@ -896,7 +938,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
           dummy.updateMatrix();
           nucleusInstanced.setMatrixAt(i, dummy.matrix);
 
-          dummy.rotation.set(elapsed * 0.7 + n.phase, elapsed * 0.5, n.phase);
+          dummy.rotation.set(elapsed * 0.45 + n.phase, elapsed * 0.35, n.phase);
           dummy.scale.setScalar(1.0);
           dummy.updateMatrix();
           ringInstanced.setMatrixAt(i, dummy.matrix);
@@ -925,16 +967,16 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
         heroGroup.position.copy(neurons[heroIdx].livePos);
         const heroScale = 1.0 + mix * 0.55 + enter * 0.25;
         heroGroup.scale.setScalar(heroScale);
-        heroGroup.rotation.y = elapsed * 0.25 * (1 - enter * 0.7) + pointerX * 0.2;
+        heroGroup.rotation.y = elapsed * 0.2 * (1 - enter * 0.7) + pointerX * 0.2;
 
-        heroRingA.rotation.z = elapsed * 0.65;
-        heroRingB.rotation.y = -elapsed * 0.5;
-        heroRingC.rotation.x = elapsed * 0.42;
-        heroOuterMat.opacity = Math.max(0.05, 0.44 - enter * 0.32) * reveal;
-        heroRingAMat.opacity = Math.max(0.15, 0.94 - enter * 0.55) * reveal;
+        heroRingA.rotation.z = elapsed * 0.5;
+        heroRingB.rotation.y = -elapsed * 0.4;
+        heroRingC.rotation.x = elapsed * 0.34;
+        heroOuterMat.opacity = Math.max(0.05, 0.26 - enter * 0.18) * reveal;
+        heroRingAMat.opacity = Math.max(0.12, 0.62 - enter * 0.38) * reveal;
         const coreFade = Math.max(0, 1 - THREE.MathUtils.smoothstep(enter, 0.55, 0.95));
-        heroCoreMat.opacity = 0.98 * coreFade * reveal;
-        heroGlowMat.opacity = 0.88 * coreFade * reveal;
+        heroCoreMat.opacity = 0.82 * coreFade * reveal;
+        heroGlowMat.opacity = 0.32 * coreFade * reveal;
       }
 
       // Sync synaptic connections
@@ -950,7 +992,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
         synPosArr[s * 6 + 5] = b.z;
       }
       synAttr.needsUpdate = true;
-      synMat.opacity = Math.max(0, 0.65 + mix * 0.16 - enter * 0.2) * reveal;
+      synMat.opacity = Math.max(0, 0.34 + mix * 0.12 - enter * 0.14) * reveal;
 
       // Update floating weight & activation number sprites
       for (let m = 0; m < metricSprites.length; m++) {
@@ -967,13 +1009,19 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
           );
         }
         (item.sprite.material as THREE.SpriteMaterial).opacity =
-          Math.max(0, 0.96 - enter * 1.4) * reveal;
+          Math.max(0, 0.9 - enter * 1.4) * reveal;
       }
 
-      // Animate continuous end-to-end energy waves from Layer 0 -> Layer 4
+      // Animate 3 independent random end-to-end data pulses (Layer 0 -> Layer 4), re-randomizing every pass
       for (let e = 0; e < energyMeta.length; e++) {
         const em = energyMeta[e];
-        const totalU = ((elapsed * em.speed + em.offset) % 1) * 4.0; // 4 hops across 5 layers
+        const progress = elapsed * em.speed + em.offset;
+        const cycle = Math.floor(progress);
+        if (cycle !== em.prevCycle) {
+          em.prevCycle = cycle;
+          em.route = pickRandomRoute();
+        }
+        const totalU = (progress - cycle) * 4.0;
         const hopIdx = Math.min(3, Math.floor(totalU));
         const hopT = totalU - hopIdx;
         const nA = neurons[em.route[hopIdx]].livePos;
@@ -982,7 +1030,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
 
         dummy.position.copy(_ePos);
         dummy.rotation.set(0, 0, 0);
-        dummy.scale.setScalar(1.0 + Math.sin(hopT * Math.PI) * 0.35);
+        dummy.scale.setScalar(1.0 + Math.sin(hopT * Math.PI) * 0.22);
         dummy.updateMatrix();
         energyHeads.setMatrixAt(e, dummy.matrix);
         energyAuras.setMatrixAt(e, dummy.matrix);

@@ -134,15 +134,15 @@ function sampleDetailedFlight(
     const enterNeuronProgress = THREE.MathUtils.smoothstep(u, 0.36, 0.64);
 
     if (u < 0.38) {
-      // Phase 2A: Neurons mix order while camera zooms toward Hero Round Neuron at (0, 1.55, -0.0432)
+      // Phase 2A: Neurons mix order while camera zooms toward Hero Round Neuron at (0, 1.55, -0.0312)
       const t = u / 0.38;
       const eased = t * t * (3 - 2 * t);
       _vA.set(...DETAILED_CHAMBERS[1].camPos); // (0, 1.56, 0.52)
-      _vB.set(0, 1.55, 0.14);
+      _vB.set(0, 1.55, 0.11);
       outPos.lerpVectors(_vA, _vB, eased);
 
       _vC.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.55, 0)
-      _vD.set(0, 1.55, -0.0432);
+      _vD.set(0, 1.55, -0.0312);
       outTarget.lerpVectors(_vC, _vD, eased);
 
       return {
@@ -154,7 +154,7 @@ function sampleDetailedFlight(
         neuralMixProgress,
         enterNeuronProgress,
         horizontalWarp: true,
-        nearPlane: THREE.MathUtils.lerp(0.004, 0.0016, eased),
+        nearPlane: THREE.MathUtils.lerp(0.004, 0.0014, eased),
         farPlane: THREE.MathUtils.lerp(42, 24, eased),
         frontWallFade: 1,
       };
@@ -162,11 +162,11 @@ function sampleDetailedFlight(
       // Phase 2B: Camera shrinks straight INSIDE Hero Round Neuron
       const t = (u - 0.38) / 0.26;
       const eased = t * t * (3 - 2 * t);
-      _vA.set(0, 1.55, 0.14);
-      _vB.set(0, 1.55, -0.075);
+      _vA.set(0, 1.55, 0.11);
+      _vB.set(0, 1.55, -0.06);
       outPos.lerpVectors(_vA, _vB, eased);
 
-      _vC.set(0, 1.55, -0.0432);
+      _vC.set(0, 1.55, -0.0312);
       _vD.set(0, 1.05, -0.35);
       outTarget.lerpVectors(_vC, _vD, eased);
 
@@ -179,7 +179,7 @@ function sampleDetailedFlight(
         neuralMixProgress,
         enterNeuronProgress,
         horizontalWarp: true,
-        nearPlane: 0.0012,
+        nearPlane: 0.001,
         farPlane: 18,
         frontWallFade: 1,
       };
@@ -187,7 +187,7 @@ function sampleDetailedFlight(
       // Phase 2C: Exit out bottom/back of Chosen Block down subterranean shaft into CH.03 Iris Canyon
       const t = (u - 0.64) / 0.36;
       const eased = 1 - Math.pow(1 - t, 3);
-      _vA.set(0, 1.55, -0.075);
+      _vA.set(0, 1.55, -0.06);
       _vB.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -6.0)
       outPos.lerpVectors(_vA, _vB, eased);
 
