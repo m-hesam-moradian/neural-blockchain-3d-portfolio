@@ -70,10 +70,11 @@ function sampleDetailedFlight(
   neuralMixProgress: number;
   enterNeuronProgress: number;
   horizontalWarp: boolean;
+  nearPlane: number;
+  farPlane: number;
 } {
   const p = THREE.MathUtils.clamp(progress, 0, 1);
 
-  // Closest chamber for HUD title
   let chamberIdx = 0;
   let minDiff = Infinity;
   for (let i = 0; i < DETAILED_CHAMBERS.length; i++) {
@@ -86,29 +87,25 @@ function sampleDetailedFlight(
 
   let warpIntensity = 0;
   let portalFlyProgress = 0;
-  // Summit blocks slowly explode & Chosen Block expands around z=-20
-  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.26);
-  // Round-Neuron Neural Network blooms cleanly INSIDE the expanding Chosen Block
-  const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.08, 0.24);
+  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.28);
+  const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.12, 0.28);
 
-  // Segment 1: CH.01 Chained Blocks (0.00) -> Blocks explode & Chosen Block opens -> Inside Block Neural Net (0.36)
+  // Segment 1: CH.01 Chained 0/1 Blocks (0.00) -> 27 blocks explode slowly & camera shrinks inside Chosen Block (0.36)
   if (p <= DETAILED_CHAMBERS[1].scrollAt) {
     const span = DETAILED_CHAMBERS[1].scrollAt;
     const u = p / span;
     const eased = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
 
     _vA.set(...DETAILED_CHAMBERS[0].camPos); // (0, 2.35, 11.4)
-    _vB.set(...DETAILED_CHAMBERS[1].camPos); // (0, 2.1, -5.5)
+    _vB.set(...DETAILED_CHAMBERS[1].camPos); // (0, 1.56, 0.52)
     outPos.lerpVectors(_vA, _vB, eased);
-    const centerPassDip = Math.sin(THREE.MathUtils.clamp(eased / 0.65, 0, 1) * Math.PI) * 0.42;
-    outPos.y -= centerPassDip;
 
     _vC.set(...DETAILED_CHAMBERS[0].camTarget); // (0, 1.35, 0)
-    _vD.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.35, -20.0)
+    _vD.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.55, 0)
     outTarget.lerpVectors(_vC, _vD, eased);
 
-    // Subtle speed streaks only during mid-dive (strictly 0 before arrival at CH.02!)
-    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.25) / 0.48, 0, 1) * Math.PI) * 0.45;
+    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.14) / 0.45, 0, 1) * Math.PI) * 0.42;
+    const microBlend = THREE.MathUtils.smoothstep(u, 0.55, 0.95);
     return {
       chamberIdx,
       warpIntensity,
@@ -118,81 +115,112 @@ function sampleDetailedFlight(
       neuralMixProgress: 0,
       enterNeuronProgress: 0,
       horizontalWarp: true,
+      nearPlane: THREE.MathUtils.lerp(0.1, 0.004, microBlend),
+      farPlane: THREE.MathUtils.lerp(180, 42, microBlend),
     };
   }
 
-  // Segment 2: CH.02 Deep Neural Net at z=-20 (0.36) -> Order Mix-Up -> Fly Straight INSIDE Hero Round Neuron -> CH.03 Iris Canyon at z=-52 (0.68)
+  // Segment 2: CH.02 Inside Chosen Block (0.36) -> Order Mix Up -> Shrink Inside Hero Round Neuron -> CH.03 Iris Canyon (0.68)
   if (p <= DETAILED_CHAMBERS[2].scrollAt) {
     const u =
       (p - DETAILED_CHAMBERS[1].scrollAt) /
       (DETAILED_CHAMBERS[2].scrollAt - DETAILED_CHAMBERS[1].scrollAt);
 
-    const neuralMixProgress = THREE.MathUtils.smoothstep(u, 0.05, 0.36);
-    const enterNeuronProgress = THREE.MathUtils.smoothstep(u, 0.36, 0.66);
+    const neuralMixProgress = THREE.MathUtils.smoothstep(u, 0.04, 0.36);
+    const enterNeuronProgress = THREE.MathUtils.smoothstep(u, 0.36, 0.64);
 
     if (u < 0.38) {
-      // Phase 2A: Layers mix up while camera closes onto Hero Round Neuron at (0, 1.35, -21.2)
+      // Phase 2A: Neurons mix order while camera zooms toward Hero Round Neuron at (0, 1.55, -0.0432)
       const t = u / 0.38;
       const eased = t * t * (3 - 2 * t);
-      _vA.set(...DETAILED_CHAMBERS[1].camPos); // (0, 2.1, -5.5)
-      _vB.set(0, 1.5, -15.8);
+      _vA.set(...DETAILED_CHAMBERS[1].camPos); // (0, 1.56, 0.52)
+      _vB.set(0, 1.55, 0.14);
       outPos.lerpVectors(_vA, _vB, eased);
 
-      _vC.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.35, -20.0)
-      _vD.set(0, 1.35, -21.2);
+      _vC.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.55, 0)
+      _vD.set(0, 1.55, -0.0432);
       outTarget.lerpVectors(_vC, _vD, eased);
+
+      return {
+        chamberIdx,
+        warpIntensity: 0,
+        portalFlyProgress: 0,
+        summitExplodeProgress: 1,
+        neuralRevealProgress: 1,
+        neuralMixProgress,
+        enterNeuronProgress,
+        horizontalWarp: true,
+        nearPlane: THREE.MathUtils.lerp(0.004, 0.0016, eased),
+        farPlane: THREE.MathUtils.lerp(42, 24, eased),
+      };
     } else if (u < 0.64) {
-      // Phase 2B: Camera dives STRAIGHT INSIDE the Hero Round Neuron (z: -15.8 -> -21.2 -> -24.8)
+      // Phase 2B: Camera shrinks straight INSIDE Hero Round Neuron
       const t = (u - 0.38) / 0.26;
       const eased = t * t * (3 - 2 * t);
-      _vA.set(0, 1.5, -15.8);
-      _vB.set(0, 1.35, -24.8);
+      _vA.set(0, 1.55, 0.14);
+      _vB.set(0, 1.55, -0.075);
       outPos.lerpVectors(_vA, _vB, eased);
 
-      _vC.set(0, 1.35, -21.2);
-      _vD.set(0, -5.2, -36.0);
+      _vC.set(0, 1.55, -0.0432);
+      _vD.set(0, 1.05, -0.35);
       outTarget.lerpVectors(_vC, _vD, eased);
 
-      warpIntensity = Math.sin(t * Math.PI) * 0.72;
+      return {
+        chamberIdx,
+        warpIntensity: 0,
+        portalFlyProgress: 0,
+        summitExplodeProgress: 1,
+        neuralRevealProgress: 1,
+        neuralMixProgress,
+        enterNeuronProgress,
+        horizontalWarp: true,
+        nearPlane: 0.0012,
+        farPlane: 18,
+      };
     } else {
-      // Phase 2C: Emerge out the back of the Hero Neuron and swoop into CH.03 Iris Canyon Rim (0,-14.8,-46)
+      // Phase 2C: Exit out bottom/back of Chosen Block down subterranean shaft into CH.03 Iris Canyon
       const t = (u - 0.64) / 0.36;
       const eased = 1 - Math.pow(1 - t, 3);
-      _vA.set(0, 1.35, -24.8);
-      _vB.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -46.0)
+      _vA.set(0, 1.55, -0.075);
+      _vB.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -6.0)
       outPos.lerpVectors(_vA, _vB, eased);
 
-      _vC.set(0, -5.2, -36.0);
-      _vD.set(...DETAILED_CHAMBERS[2].camTarget); // (0, -24.0, -52.0)
+      _vC.set(0, 1.05, -0.35);
+      _vD.set(...DETAILED_CHAMBERS[2].camTarget); // (0, -24.0, -12.0)
       outTarget.lerpVectors(_vC, _vD, eased);
-    }
 
-    return {
-      chamberIdx,
-      warpIntensity,
-      portalFlyProgress,
-      summitExplodeProgress: 1,
-      neuralRevealProgress: 1,
-      neuralMixProgress,
-      enterNeuronProgress,
-      horizontalWarp: true,
-    };
+      const macroRestore = THREE.MathUtils.smoothstep(t, 0.06, 0.35);
+      warpIntensity = Math.sin(THREE.MathUtils.clamp((t - 0.14) / 0.72, 0, 1) * Math.PI) * 0.52;
+
+      return {
+        chamberIdx,
+        warpIntensity,
+        portalFlyProgress: 0,
+        summitExplodeProgress: 1,
+        neuralRevealProgress: 1,
+        neuralMixProgress,
+        enterNeuronProgress,
+        horizontalWarp: false,
+        nearPlane: THREE.MathUtils.lerp(0.0012, 0.1, macroRestore),
+        farPlane: THREE.MathUtils.lerp(18, 180, macroRestore),
+      };
+    }
   }
 
-  // Segment 3: CH.03 Iris (0.68) -> Plunge through 4-ring Gyroscope Portal (0,-24,-52) -> CH.04 Pedestal (1.00)
+  // Segment 3: CH.03 Iris (0.68) -> Plunge through 4-ring Gyroscope Portal (0,-24,-12) -> CH.04 Pedestal (1.00)
   const u = (p - DETAILED_CHAMBERS[2].scrollAt) / (1.0 - DETAILED_CHAMBERS[2].scrollAt);
   if (u < 0.48) {
     const t = u / 0.48;
     const eased = t * t * (3 - 2 * t);
     portalFlyProgress = eased;
-    warpIntensity = THREE.MathUtils.smoothstep(t, 0.22, 1.0) * 0.75;
+    warpIntensity = THREE.MathUtils.smoothstep(t, 0.22, 1.0) * 0.72;
 
     _vA.set(...DETAILED_CHAMBERS[2].camPos);
-    _vB.set(0, -31.5, -51.5);
+    _vB.set(0, -31.5, -11.5);
     outPos.lerpVectors(_vA, _vB, eased);
 
     _vC.set(...DETAILED_CHAMBERS[2].camTarget);
-    _vD.set(0, -48.0, -52.0);
+    _vD.set(0, -48.0, -12.0);
     outTarget.lerpVectors(_vC, _vD, eased);
 
     return {
@@ -204,18 +232,20 @@ function sampleDetailedFlight(
       neuralMixProgress: 1,
       enterNeuronProgress: 1,
       horizontalWarp: false,
+      nearPlane: 0.1,
+      farPlane: 180,
     };
   } else {
     const t = (u - 0.48) / 0.52;
     const eased = 1 - Math.pow(1 - t, 3);
     portalFlyProgress = 1;
-    warpIntensity = Math.max(0, 1 - t * 2.4) * 0.75;
+    warpIntensity = Math.max(0, 1 - t * 2.4) * 0.72;
 
-    _vA.set(0, -31.5, -51.5);
+    _vA.set(0, -31.5, -11.5);
     _vB.set(...DETAILED_CHAMBERS[3].camPos);
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(0, -48.0, -52.0);
+    _vC.set(0, -48.0, -12.0);
     _vD.set(...DETAILED_CHAMBERS[3].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
@@ -228,6 +258,8 @@ function sampleDetailedFlight(
       neuralMixProgress: 1,
       enterNeuronProgress: 1,
       horizontalWarp: false,
+      nearPlane: 0.1,
+      farPlane: 180,
     };
   }
 }
@@ -365,13 +397,14 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const summitChamber = buildSummitChamber(obsidianTex, glowTex, binaryTexA, binaryTexB);
     scene.add(summitChamber.root);
 
-    const driftChamber = buildDriftChamber(-20, glowTex);
-    scene.add(driftChamber.root);
+    // Neural Network lives physically INSIDE the Chosen 0/1 Block via chosenAnchor!
+    const driftChamber = buildDriftChamber(glowTex);
+    summitChamber.chosenAnchor.add(driftChamber.root);
 
-    const irisChamber = buildIrisChamber(-24, -52, obsidianTex, glowTex);
+    const irisChamber = buildIrisChamber(-24, -12, obsidianTex, glowTex);
     scene.add(irisChamber.root);
 
-    const pedestalChamber = buildPedestalChamber(-52, -52, circuitTex, glowTex);
+    const pedestalChamber = buildPedestalChamber(-52, -12, circuitTex, glowTex);
     scene.add(pedestalChamber.root);
 
     // -------------------------------------------------------------------------
@@ -409,7 +442,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     for (let i = 0; i < moteCount; i++) {
       motePos[i * 3] = (rng() - 0.5) * 42;
       motePos[i * 3 + 1] = 14 - rng() * 74; // Covers y: 14 down to -60
-      motePos[i * 3 + 2] = 18 - rng() * 102; // Covers z: 18 down to -84
+      motePos[i * 3 + 2] = 18 - rng() * 64; // Covers z: 18 down to -46
     }
     moteGeo.setAttribute('position', new THREE.BufferAttribute(motePos, 3));
     const moteMat = new THREE.PointsMaterial({
@@ -564,6 +597,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         neuralMixProgress,
         enterNeuronProgress,
         horizontalWarp,
+        nearPlane,
+        farPlane,
       } = sampleDetailedFlight(scrollRef.current, _camGoalPos, _camGoalTarget);
 
       if (
@@ -577,9 +612,19 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         telemetryCbRef.current?.(chamberIdx, warpIntensity, userOrbitingRef.current);
       }
 
+      const nextNear = THREE.MathUtils.damp(camera.near, nearPlane, 8, delta);
+      const nextFar = THREE.MathUtils.damp(camera.far, farPlane, 8, delta);
+      if (Math.abs(nextNear - camera.near) > 0.0002 || Math.abs(nextFar - camera.far) > 0.1) {
+        camera.near = nextNear;
+        camera.far = nextFar;
+        camera.updateProjectionMatrix();
+      }
+
       if (!userOrbitingRef.current) {
-        _camGoalPos.x += pointerSmooth.x * 0.72;
-        _camGoalPos.y += pointerSmooth.y * 0.42;
+        const camDist = _camGoalPos.distanceTo(_camGoalTarget);
+        const parallaxScale = Math.min(1.0, camDist * 0.09);
+        _camGoalPos.x += pointerSmooth.x * 0.72 * parallaxScale;
+        _camGoalPos.y += pointerSmooth.y * 0.42 * parallaxScale;
 
         const damp = 4.6;
         camera.position.x = THREE.MathUtils.damp(camera.position.x, _camGoalPos.x, damp, delta);
@@ -594,13 +639,12 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       controls.update();
 
       // Update Chambers cleanly within active spatial range
-      volcanicTerrain.root.visible = camera.position.y > -20;
+      volcanicTerrain.root.visible =
+        camera.position.y > -1.0 && (camera.position.z > 0.65 || scrollRef.current < 0.34);
 
-      summitChamber.root.visible = camera.position.z > -28 && camera.position.y > -16;
+      summitChamber.root.visible = camera.position.y > -6;
       if (summitChamber.root.visible) {
         summitChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y, summitExplodeProgress);
-      }
-      if (camera.position.z < 12 && camera.position.z > -48 && camera.position.y > -20) {
         driftChamber.update(
           elapsed,
           pointerSmooth.x,
@@ -622,6 +666,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
           pointerSmooth.y
         );
       }
+
+      motes.visible = camera.position.z > 0.65 || camera.position.y < -2.0;
 
       // Animate Hyperspace Warp Streaks (Z-tunnel for CH.01->02, Y-shaft for CH.03->04)
       warpStreaks.visible = warpIntensity > 0.02;

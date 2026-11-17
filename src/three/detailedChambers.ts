@@ -122,7 +122,7 @@ export function buildSummitChamber(
     const segCount = ring === 0 ? 14 : 16;
     const angle = (i / segCount) * Math.PI * 2 + ring * 0.25;
     const rad =
-      ring === 0 ? 0.65 + rng() * 0.8 : ring === 1 ? 1.85 + rng() * 0.7 : 2.85 + rng() * 0.85;
+      ring === 0 ? 0.95 + rng() * 0.65 : ring === 1 ? 1.85 + rng() * 0.7 : 2.85 + rng() * 0.85;
     const hScale = ring === 0 ? 1.15 : ring === 1 ? 0.82 + rng() * 0.3 : 0.45 + rng() * 0.32;
     dummy.position.set(Math.cos(angle) * rad, -2.5 + hScale * 1.1, Math.sin(angle) * rad);
     dummy.rotation.set(0, rng() * Math.PI, 0);
@@ -167,20 +167,49 @@ export function buildSummitChamber(
     metalness: 0.55,
   });
 
-  // Dedicated translucent/opening material for the randomly Chosen Target Block we fly INSIDE
-  const chosenBlockMat = new THREE.MeshStandardMaterial({
+  // Dedicated interior/exterior materials for the randomly Chosen Target Block (NEVER scales huge!)
+  const chosenOuterMat = new THREE.MeshStandardMaterial({
     map: binaryTexA.map,
     emissive: new THREE.Color(0x00ffff),
     emissiveMap: binaryTexA.emissiveMap,
-    emissiveIntensity: 0.68,
-    roughness: 0.22,
-    metalness: 0.45,
-    transparent: true,
-    opacity: 0.94,
+    emissiveIntensity: 0.78,
+    roughness: 0.24,
+    metalness: 0.52,
     side: THREE.FrontSide,
   });
 
-  const heroFrameGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.08, 1.08, 1.08));
+  // Interior walls visible only when camera shrinks inside the Chosen Block (subtle 0/1 lining!)
+  const chosenInnerMat = new THREE.MeshStandardMaterial({
+    map: binaryTexA.map,
+    emissive: new THREE.Color(0x00ffff),
+    emissiveMap: binaryTexA.emissiveMap,
+    emissiveIntensity: 0.34,
+    roughness: 0.4,
+    metalness: 0.35,
+    side: THREE.FrontSide,
+  });
+
+  const outerFaceGeo = new THREE.PlaneGeometry(0.82, 0.82);
+  const innerFaceGeo = new THREE.PlaneGeometry(0.812, 0.812);
+
+  // Split front (+Z) face into left & right sliding 0/1 vault doors
+  const doorGeoL = new THREE.PlaneGeometry(0.41, 0.82);
+  const uvL = doorGeoL.attributes.uv;
+  for (let k = 0; k < uvL.count; k++) {
+    uvL.setX(k, uvL.getX(k) * 0.5);
+  }
+  const doorGeoR = new THREE.PlaneGeometry(0.41, 0.82);
+  const uvR = doorGeoR.attributes.uv;
+  for (let k = 0; k < uvR.count; k++) {
+    uvR.setX(k, 0.5 + uvR.getX(k) * 0.5);
+  }
+
+  const chosenAnchor = new THREE.Group();
+  chosenAnchor.scale.setScalar(0.036);
+  let leftDoor: THREE.Mesh | null = null;
+  let rightDoor: THREE.Mesh | null = null;
+
+  const heroFrameGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.06, 1.06, 1.06));
   const heroFrameMat = new THREE.LineBasicMaterial({
     color: 0xd8ffff,
     transparent: true,
@@ -195,7 +224,12 @@ export function buildSummitChamber(
     blockGeo,
     blockMatA,
     blockMatB,
-    chosenBlockMat,
+    chosenOuterMat,
+    chosenInnerMat,
+    outerFaceGeo,
+    innerFaceGeo,
+    doorGeoL,
+    doorGeoR,
     heroFrameGeo,
     heroFrameMat
   );
@@ -240,12 +274,53 @@ export function buildSummitChamber(
 
     cellGroup.add(new THREE.LineSegments(wireEdgeGeo, wireEdgeMat));
 
-    const meshMat = isChosen ? chosenBlockMat : idx % 2 === 0 ? blockMatA : blockMatB;
-    const blockMesh = new THREE.Mesh(blockGeo, meshMat);
-    cellGroup.add(blockMesh);
-
     if (isChosen) {
       cellGroup.add(new THREE.LineSegments(heroFrameGeo, heroFrameMat));
+
+      const half = 0.41;
+      const inHalf = 0.406;
+      // 5 Outer + 5 Inward-facing 0/1 walls (Back, Left, Right, Top, Bottom)
+      const faceTransforms: [number, number, number, number, number, number][] = [
+        [0, 0, -half, 0, Math.PI, 0], // Back outer
+        [-half, 0, 0, 0, -Math.PI / 2, 0], // Left outer
+        [half, 0, 0, 0, Math.PI / 2, 0], // Right outer
+        [0, half, 0, -Math.PI / 2, 0, 0], // Top outer
+        [0, -half, 0, Math.PI / 2, 0, 0], // Bottom outer
+      ];
+      faceTransforms.forEach(([px, py, pz, rx, ry, rz]) => {
+        const outWall = new THREE.Mesh(outerFaceGeo, chosenOuterMat);
+        outWall.position.set(px, py, pz);
+        outWall.rotation.set(rx, ry, rz);
+        cellGroup.add(outWall);
+      });
+
+      const innerTransforms: [number, number, number, number, number, number][] = [
+        [0, 0, -inHalf, 0, 0, 0], // Back inner faces +Z toward camera
+        [-inHalf, 0, 0, 0, Math.PI / 2, 0], // Left inner faces +X
+        [inHalf, 0, 0, 0, -Math.PI / 2, 0], // Right inner faces -X
+        [0, inHalf, 0, Math.PI / 2, 0, 0], // Top inner faces -Y
+        [0, -inHalf, 0, -Math.PI / 2, 0, 0], // Bottom inner faces +Y
+      ];
+      innerTransforms.forEach(([px, py, pz, rx, ry, rz]) => {
+        const inWall = new THREE.Mesh(innerFaceGeo, chosenInnerMat);
+        inWall.position.set(px, py, pz);
+        inWall.rotation.set(rx, ry, rz);
+        cellGroup.add(inWall);
+      });
+
+      // Front (+Z) sliding 0/1 vault doors
+      leftDoor = new THREE.Mesh(doorGeoL, chosenOuterMat);
+      leftDoor.position.set(-0.205, 0, half);
+      rightDoor = new THREE.Mesh(doorGeoR, chosenOuterMat);
+      rightDoor.position.set(0.205, 0, half);
+      cellGroup.add(leftDoor, rightDoor);
+
+      // Mount anchor inside the Chosen Block where the Neural Network physically lives!
+      cellGroup.add(chosenAnchor);
+    } else {
+      const meshMat = idx % 2 === 0 ? blockMatA : blockMatB;
+      const blockMesh = new THREE.Mesh(blockGeo, meshMat);
+      cellGroup.add(blockMesh);
     }
 
     // Outward 3D radial direction for slow explosion
@@ -313,40 +388,35 @@ export function buildSummitChamber(
   monumentGroup.add(satBlockGroup);
 
   const _vTarget = new THREE.Vector3();
-  // Chosen Block expands cleanly around CH.02 Neural Network at (0, 1.35, -20.0) world -> (0, -0.2, -20.0) local
-  const _chosenRoomPos = new THREE.Vector3(0, -0.2, -20.0);
-  const _chosenMidPos = new THREE.Vector3(0, 0.0, 0.5);
+  // Chosen Block glides gently to monument center (0, 0, 0) local = (0, 1.55, 0) world, KEEPING real 1.0x size!
+  const _chosenCenter = new THREE.Vector3(0, 0, 0);
 
   return {
     root,
+    chosenAnchor,
     update: (elapsed: number, pointerX: number, pointerY: number, explodeProgress: number) => {
       const exp = THREE.MathUtils.clamp(explodeProgress, 0, 1);
       const cursorBoost = Math.min(0.28, Math.hypot(pointerX, pointerY) * 0.24);
-      const slowExplode = Math.pow(exp, 0.85) * 8.2 + cursorBoost;
+      const slowExplode = Math.pow(exp, 0.85) * 7.2 + cursorBoost;
 
-      const rotScale = Math.max(0, 1 - exp * 1.6);
+      const rotScale = Math.max(0, 1 - exp * 1.65);
       monumentGroup.rotation.y = (elapsed * 0.08 + pointerX * 0.24) * rotScale;
       monumentGroup.rotation.x = pointerY * 0.12 * rotScale;
 
       for (let i = 0; i < cells.length; i++) {
         const c = cells[i];
         if (c.isChosen) {
-          // Step 1: lock forward slightly; Step 2: expand into the huge glowing wireframe chamber enclosing CH.02!
-          const pMid = THREE.MathUtils.smoothstep(exp, 0.04, 0.35);
-          const pRoom = THREE.MathUtils.smoothstep(exp, 0.35, 0.95);
-          _vTarget.lerpVectors(c.basePos, _chosenMidPos, pMid);
-          c.livePos.lerpVectors(_vTarget, _chosenRoomPos, pRoom);
+          // Chosen Block locks dead-center at real 1.0x size — CAMERA shrinks inside it!
+          c.livePos.lerpVectors(c.basePos, _chosenCenter, THREE.MathUtils.smoothstep(exp, 0.04, 0.45));
           c.group.position.copy(c.livePos);
-
-          const scaleUp = 1.0 + pMid * 1.6 + pRoom * 22.5;
-          c.group.scale.setScalar(scaleUp);
+          c.group.scale.setScalar(1.0);
           c.group.rotation.set(
             (1 - exp) * Math.sin(elapsed * 0.7) * 0.05,
             (1 - exp) * Math.cos(elapsed * 0.6) * 0.06,
             0
           );
         } else {
-          // All other blocks slowly explode radially outward out of the flight corridor
+          // All other 27 blocks slowly explode outward
           _vTarget.copy(c.basePos).addScaledVector(c.explodeDir, slowExplode);
           _vTarget.y += Math.sin(elapsed * 1.1 + i * 0.35) * 0.03;
           c.livePos.copy(_vTarget);
@@ -360,11 +430,17 @@ export function buildSummitChamber(
         }
       }
 
-      // Fade Chosen Block solid binary walls BEFORE camera crosses the threshold so view inside is crystal clear!
-      const wallFade = THREE.MathUtils.smoothstep(exp, 0.22, 0.56);
-      chosenBlockMat.opacity = Math.max(0.0, 0.94 * (1 - wallFade));
-      chosenBlockMat.visible = chosenBlockMat.opacity > 0.02;
-      chainMat.opacity = Math.max(0.08, 0.78 - exp * 0.62);
+      // Slide the front 0/1 vault doors smoothly open as the shrunken camera approaches the doorway!
+      const doorOpen = THREE.MathUtils.smoothstep(exp, 0.32, 0.72) * 0.46;
+      if (leftDoor && rightDoor) {
+        leftDoor.position.x = -0.205 - doorOpen;
+        rightDoor.position.x = 0.205 + doorOpen;
+        const doorVis = doorOpen < 0.44;
+        leftDoor.visible = doorVis;
+        rightDoor.visible = doorVis;
+      }
+
+      chainMat.opacity = Math.max(0.06, 0.78 - exp * 0.68);
 
       for (let p = 0; p < chainPairs.length; p++) {
         const [aIdx, bIdx] = chainPairs[p];
@@ -384,7 +460,7 @@ export function buildSummitChamber(
         const t = (elapsed * 0.8 + i * 0.13) % 1;
         dummy.position.lerpVectors(cells[aIdx].livePos, cells[bIdx].livePos, t);
         dummy.rotation.set(elapsed, elapsed * 0.7, 0);
-        dummy.scale.setScalar(1 - exp * 0.4);
+        dummy.scale.setScalar(Math.max(0.05, 1 - exp * 0.9));
         dummy.updateMatrix();
         linkNodes.setMatrixAt(i, dummy.matrix);
       }
@@ -405,25 +481,23 @@ export function buildSummitChamber(
 }
 
 /**
- * CH.02 // NEURAL CORE (INSIDE THE CHOSEN BLOCK):
- * True Round Neuron Style Neural Network — NO square cubes!
- * Features round spherical glass neurons with glowing nucleus cores & orbital halo rings,
- * crisp visible neural weight / bias / activation numbers (w = +0.94, σ = 0.91, b = -0.14),
- * and full start-to-end glowing energy waves flowing visibly through every neuron layer to the output!
+ * CH.02 // NEURAL CORE (NESTED PHYSICALLY INSIDE THE CHOSEN 0/1 BLOCK!):
+ * Mounted inside summitChamber.chosenAnchor at micro-scale 0.036 so the camera literally
+ * shrinks INSIDE the real 0.82-unit Chosen Block to view the Round-Neuron Network inside it!
  */
-export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
+export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
   const root = new THREE.Group();
-  root.position.set(0, 1.35, zPos);
+  root.position.set(0, 0, 0);
 
   const disposables: { dispose: () => void }[] = [];
   const rng = createRng(2026);
 
-  // Clean cybernetic dark floor grid inside the block space
-  const floorGrid = new THREE.GridHelper(34, 24, 0x00ffff, 0x1b232c);
-  floorGrid.position.set(0, -4.4, 0);
+  // Compact cybernetic reference floor grid fitted cleanly inside the Chosen Block
+  const floorGrid = new THREE.GridHelper(18, 16, 0x00ffff, 0x1b232c);
+  floorGrid.position.set(0, -5.8, 0);
   const gridMat = floorGrid.material as THREE.Material;
   gridMat.transparent = true;
-  gridMat.opacity = 0.2;
+  gridMat.opacity = 0.25;
   root.add(floorGrid);
   disposables.push(floorGrid);
 
@@ -463,13 +537,13 @@ export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
         if (isHero) heroIdx = neurons.length;
 
         const mixAngle = rng() * Math.PI * 2;
-        const mixRad = isHero ? 0 : 2.8 + rng() * 6.2;
+        const mixRad = isHero ? 0 : 2.2 + rng() * 4.8;
         const mixedPos = isHero
           ? new THREE.Vector3(0, 0, -1.2)
           : new THREE.Vector3(
-              Math.cos(mixAngle) * mixRad + (rng() - 0.5) * 2.4,
-              (rng() - 0.5) * 5.6,
-              Math.sin(mixAngle) * mixRad * 0.7 - 1.2
+              Math.cos(mixAngle) * mixRad + (rng() - 0.5) * 1.6,
+              (rng() - 0.5) * 4.8,
+              Math.sin(mixAngle) * mixRad * 0.65 - 1.0
             );
 
         indices.push(neurons.length);
@@ -576,7 +650,11 @@ export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
   heroGroup.add(heroRingA, heroRingB, heroRingC);
 
   const heroCoreGeo = new THREE.SphereGeometry(0.22, 18, 14);
-  const heroCoreMat = new THREE.MeshBasicMaterial({ color: 0xd8ffff });
+  const heroCoreMat = new THREE.MeshBasicMaterial({
+    color: 0xd8ffff,
+    transparent: true,
+    opacity: 0.96,
+  });
   heroGroup.add(new THREE.Mesh(heroCoreGeo, heroCoreMat));
 
   const heroGlowMat = new THREE.SpriteMaterial({
@@ -777,8 +855,8 @@ export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
 
           if (enter > 0.01) {
             const len = Math.max(0.01, Math.hypot(n.livePos.x, n.livePos.y));
-            n.livePos.x += (n.livePos.x / len) * enter * 4.2;
-            n.livePos.y += (n.livePos.y / len) * enter * 2.8;
+            n.livePos.x += (n.livePos.x / len) * enter * 1.45;
+            n.livePos.y += (n.livePos.y / len) * enter * 1.1;
           }
 
           const pulse = 1.0 + Math.sin(elapsed * 2.8 + n.phase) * 0.12;
@@ -816,18 +894,21 @@ export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
       ringInstanced.instanceMatrix.needsUpdate = true;
       auraInstanced.instanceMatrix.needsUpdate = true;
 
-      // Update Hero Round Neuron Assembly
+      // Update Hero Round Neuron Assembly (camera shrinks into it rather than ballooning the neuron!)
       if (heroIdx >= 0) {
         heroGroup.position.copy(neurons[heroIdx].livePos);
-        const heroScale = 1.0 + mix * 0.75 + enter * 5.8;
+        const heroScale = 1.0 + mix * 0.55 + enter * 0.25;
         heroGroup.scale.setScalar(heroScale);
         heroGroup.rotation.y = elapsed * 0.25 * (1 - enter * 0.7) + pointerX * 0.2;
 
         heroRingA.rotation.z = elapsed * 0.65;
         heroRingB.rotation.y = -elapsed * 0.5;
         heroRingC.rotation.x = elapsed * 0.42;
-        heroOuterMat.opacity = Math.max(0.08, 0.36 - enter * 0.24);
-        heroGlowMat.opacity = 0.85 - enter * 0.35;
+        heroOuterMat.opacity = Math.max(0.05, 0.36 - enter * 0.28);
+        heroRingAMat.opacity = Math.max(0.15, 0.88 - enter * 0.55);
+        const coreFade = Math.max(0, 1 - THREE.MathUtils.smoothstep(enter, 0.55, 0.95));
+        heroCoreMat.opacity = 0.96 * coreFade;
+        heroGlowMat.opacity = 0.85 * coreFade;
       }
 
       // Sync synaptic connections
