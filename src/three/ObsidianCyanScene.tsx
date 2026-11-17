@@ -17,6 +17,7 @@ import {
   PedestalMode,
 } from './detailedChambers';
 import {
+  createBinaryBlockchainBlockTextures,
   createObsidianSurfaceTexture,
   createPedestalCircuitTexture,
   createPureCyanGlowTexture,
@@ -65,6 +66,8 @@ function sampleDetailedFlight(
   warpIntensity: number;
   portalFlyProgress: number;
   summitExplodeProgress: number;
+  neuralMixProgress: number;
+  enterNeuronProgress: number;
   horizontalWarp: boolean;
 } {
   const p = THREE.MathUtils.clamp(progress, 0, 1);
@@ -85,7 +88,7 @@ function sampleDetailedFlight(
   // Summit radial block opening ramps cleanly ahead of the camera crossing z = 0
   const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.16);
 
-  // Segment 1: CH.01 Summit (0.00) -> Straight INSIDE opening monument (0, 1.55, 0) -> CH.02 Drift (0.36)
+  // Segment 1: CH.01 Binary Blockchain Monument (0.00) -> Straight INSIDE Monument (0,1.55,0) -> CH.02 Deep Neural Net (0.36)
   if (p <= DETAILED_CHAMBERS[1].scrollAt) {
     const span = DETAILED_CHAMBERS[1].scrollAt;
     const u = p / span;
@@ -94,45 +97,79 @@ function sampleDetailedFlight(
     _vA.set(...DETAILED_CHAMBERS[0].camPos);
     _vB.set(...DETAILED_CHAMBERS[1].camPos);
     outPos.lerpVectors(_vA, _vB, eased);
-    // Gentle dip so eye height passes dead center through the blazing singularity at (0, 1.55, 0)
-    const centerPassDip = Math.sin(THREE.MathUtils.clamp(eased / 0.6, 0, 1) * Math.PI) * 0.52;
+    // Gentle dip so eye height passes dead center through the singularity at (0, 1.55, 0)
+    const centerPassDip = Math.sin(THREE.MathUtils.clamp(eased / 0.52, 0, 1) * Math.PI) * 0.58;
     outPos.y -= centerPassDip;
 
     _vC.set(...DETAILED_CHAMBERS[0].camTarget);
     _vD.set(...DETAILED_CHAMBERS[1].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
-    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.24) / 0.56, 0, 1) * Math.PI);
+    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.22) / 0.56, 0, 1) * Math.PI);
     return {
       chamberIdx,
       warpIntensity,
       portalFlyProgress,
       summitExplodeProgress,
+      neuralMixProgress: 0,
+      enterNeuronProgress: 0,
       horizontalWarp: true,
     };
   }
 
-  // Segment 2: CH.02 Drift (0.36) -> Swoop down into CH.03 Iris Canyon Rim (0.68)
+  // Segment 2: CH.02 Deep Neural Net (0.36) -> Order Mix-Up -> Fly Straight INSIDE Hero Neuron -> CH.03 Iris Canyon (0.68)
   if (p <= DETAILED_CHAMBERS[2].scrollAt) {
     const u =
       (p - DETAILED_CHAMBERS[1].scrollAt) /
       (DETAILED_CHAMBERS[2].scrollAt - DETAILED_CHAMBERS[1].scrollAt);
-    const eased = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
 
-    _vA.set(...DETAILED_CHAMBERS[1].camPos);
-    _vB.set(...DETAILED_CHAMBERS[2].camPos);
-    outPos.lerpVectors(_vA, _vB, eased);
+    const neuralMixProgress = THREE.MathUtils.smoothstep(u, 0.04, 0.36);
+    const enterNeuronProgress = THREE.MathUtils.smoothstep(u, 0.36, 0.66);
 
-    _vC.set(...DETAILED_CHAMBERS[1].camTarget);
-    _vD.set(...DETAILED_CHAMBERS[2].camTarget);
-    outTarget.lerpVectors(_vC, _vD, eased);
+    if (u < 0.38) {
+      // Phase 2A: Layers scramble/mix up while camera closes onto dead-center Hero Neuron at (0, 1.35, -37.2)
+      const t = u / 0.38;
+      const eased = t * t * (3 - 2 * t);
+      _vA.set(...DETAILED_CHAMBERS[1].camPos); // (0, 2.2, -21.2)
+      _vB.set(0, 1.55, -31.8);
+      outPos.lerpVectors(_vA, _vB, eased);
 
-    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.22) / 0.58, 0, 1) * Math.PI) * 0.55;
+      _vC.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.35, -36.0)
+      _vD.set(0, 1.35, -37.2);
+      outTarget.lerpVectors(_vC, _vD, eased);
+    } else if (u < 0.64) {
+      // Phase 2B: Camera dives STRAIGHT INSIDE the Hero Target Neuron cube (z: -31.8 -> -37.2 -> -40.8)
+      const t = (u - 0.38) / 0.26;
+      const eased = t * t * (3 - 2 * t);
+      _vA.set(0, 1.55, -31.8);
+      _vB.set(0, 1.35, -40.8);
+      outPos.lerpVectors(_vA, _vB, eased);
+
+      _vC.set(0, 1.35, -37.2);
+      _vD.set(0, -5.2, -52.0);
+      outTarget.lerpVectors(_vC, _vD, eased);
+
+      warpIntensity = Math.sin(t * Math.PI) * 0.92;
+    } else {
+      // Phase 2C: Emerge out the back of the Hero Neuron and swoop into CH.03 Iris Canyon Rim
+      const t = (u - 0.64) / 0.36;
+      const eased = 1 - Math.pow(1 - t, 3);
+      _vA.set(0, 1.35, -40.8);
+      _vB.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -62.0)
+      outPos.lerpVectors(_vA, _vB, eased);
+
+      _vC.set(0, -5.2, -52.0);
+      _vD.set(...DETAILED_CHAMBERS[2].camTarget); // (0, -24.0, -68.0)
+      outTarget.lerpVectors(_vC, _vD, eased);
+    }
+
     return {
       chamberIdx,
       warpIntensity,
       portalFlyProgress,
       summitExplodeProgress: 1,
+      neuralMixProgress,
+      enterNeuronProgress,
       horizontalWarp: true,
     };
   }
@@ -145,11 +182,11 @@ function sampleDetailedFlight(
     portalFlyProgress = eased;
     warpIntensity = THREE.MathUtils.smoothstep(t, 0.22, 1.0);
 
-    _vA.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -62.0)
-    _vB.set(0, -31.5, -67.5); // Keep tiny +Z offset to prevent gimbal flip
+    _vA.set(...DETAILED_CHAMBERS[2].camPos);
+    _vB.set(0, -31.5, -67.5);
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(...DETAILED_CHAMBERS[2].camTarget); // (0, -24.0, -68.0)
+    _vC.set(...DETAILED_CHAMBERS[2].camTarget);
     _vD.set(0, -48.0, -68.0);
     outTarget.lerpVectors(_vC, _vD, eased);
 
@@ -158,21 +195,22 @@ function sampleDetailedFlight(
       warpIntensity,
       portalFlyProgress,
       summitExplodeProgress: 1,
+      neuralMixProgress: 1,
+      enterNeuronProgress: 1,
       horizontalWarp: false,
     };
   } else {
-    // Seamless C0 emergence above CH.04 Machined Pedestal Stage at (0, -52, -68)
     const t = (u - 0.48) / 0.52;
     const eased = 1 - Math.pow(1 - t, 3);
     portalFlyProgress = 1;
     warpIntensity = Math.max(0, 1 - t * 2.4);
 
     _vA.set(0, -31.5, -67.5);
-    _vB.set(...DETAILED_CHAMBERS[3].camPos); // (0, -49.6, -59.0)
+    _vB.set(...DETAILED_CHAMBERS[3].camPos);
     outPos.lerpVectors(_vA, _vB, eased);
 
     _vC.set(0, -48.0, -68.0);
-    _vD.set(...DETAILED_CHAMBERS[3].camTarget); // (0, -51.35, -68.0)
+    _vD.set(...DETAILED_CHAMBERS[3].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
     return {
@@ -180,6 +218,8 @@ function sampleDetailedFlight(
       warpIntensity,
       portalFlyProgress,
       summitExplodeProgress: 1,
+      neuralMixProgress: 1,
+      enterNeuronProgress: 1,
       horizontalWarp: false,
     };
   }
@@ -306,6 +346,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const glowTex = createPureCyanGlowTexture();
     const obsidianTex = createObsidianSurfaceTexture(maxAniso);
     const circuitTex = createPedestalCircuitTexture(maxAniso);
+    const binaryTexA = createBinaryBlockchainBlockTextures(maxAniso, 1);
+    const binaryTexB = createBinaryBlockchainBlockTextures(maxAniso, 2);
 
     // -------------------------------------------------------------------------
     // Build Sculpted Mars/Volcanic Horizon Terrain & All 4 Chambers
@@ -313,10 +355,10 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const volcanicTerrain = buildVolcanicHorizonTerrain();
     scene.add(volcanicTerrain.root);
 
-    const summitChamber = buildSummitChamber(obsidianTex, glowTex);
+    const summitChamber = buildSummitChamber(obsidianTex, glowTex, binaryTexA, binaryTexB);
     scene.add(summitChamber.root);
 
-    const driftChamber = buildDriftChamber(-36, glowTex);
+    const driftChamber = buildDriftChamber(-36, glowTex, binaryTexA);
     scene.add(driftChamber.root);
 
     const irisChamber = buildIrisChamber(-24, -68, obsidianTex, glowTex);
@@ -511,6 +553,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         warpIntensity,
         portalFlyProgress,
         summitExplodeProgress,
+        neuralMixProgress,
+        enterNeuronProgress,
         horizontalWarp,
       } = sampleDetailedFlight(scrollRef.current, _camGoalPos, _camGoalTarget);
 
@@ -548,7 +592,13 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         summitChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y, summitExplodeProgress);
       }
       if (camera.position.z < -4 && camera.position.z > -66 && camera.position.y > -20) {
-        driftChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y);
+        driftChamber.update(
+          elapsed,
+          pointerSmooth.x,
+          pointerSmooth.y,
+          neuralMixProgress,
+          enterNeuronProgress
+        );
       }
       if (camera.position.y < -2 && camera.position.y > -46) {
         irisChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y, portalFlyProgress);
@@ -646,6 +696,10 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       glowTex.dispose();
       obsidianTex.dispose();
       circuitTex.dispose();
+      binaryTexA.map.dispose();
+      binaryTexA.emissiveMap.dispose();
+      binaryTexB.map.dispose();
+      binaryTexB.emissiveMap.dispose();
       volcanicTerrain.dispose();
       summitChamber.dispose();
       driftChamber.dispose();

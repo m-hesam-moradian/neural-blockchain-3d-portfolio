@@ -227,23 +227,26 @@ export default function App() {
             <span className="absolute h-1.5 w-1.5 rounded-full bg-[#00FFFF]" />
           </div>
           <div className="font-mono-hud text-[9px] leading-tight tracking-widest text-[#8A929A]">
-            <p className="text-[#00FFFF]">LATTICE // LOCKED</p>
-            <p>CELLS: 26 · RADIAL</p>
+            <p className="text-[#00FFFF]">LEDGER // CHAINED</p>
+            <p>BLOCKS: 27 · BINARY 0/1</p>
           </div>
         </div>
       )}
 
-      {/* CH.02 Center Crystal Corner-Bracket Reticle (matching Screenshot 6) */}
+      {/* CH.02 Center Hero Neuron Corner-Bracket Reticle */}
       {!hudHidden && activeChamberIdx === 1 && warpIntensity < 0.35 && !isOrbiting && (
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 z-15 flex items-center justify-center"
         >
-          <div className="relative h-56 w-56 md:h-72 md:w-72">
-            <span className="absolute top-0 left-0 h-5 w-5 border-t border-l border-[#00FFFF]/75" />
-            <span className="absolute top-0 right-0 h-5 w-5 border-t border-r border-[#00FFFF]/75" />
-            <span className="absolute bottom-0 left-0 h-5 w-5 border-b border-l border-[#00FFFF]/75" />
-            <span className="absolute bottom-0 right-0 h-5 w-5 border-b border-r border-[#00FFFF]/75" />
+          <div className="relative h-44 w-44 md:h-52 md:w-52">
+            <span className="absolute -top-5 right-0 font-mono-hud text-[9px] tracking-widest text-[#00FFFF]/80">
+              NEURON_0x0A
+            </span>
+            <span className="absolute top-0 left-0 h-4 w-4 border-t border-l border-[#00FFFF]/80" />
+            <span className="absolute top-0 right-0 h-4 w-4 border-t border-r border-[#00FFFF]/80" />
+            <span className="absolute bottom-0 left-0 h-4 w-4 border-b border-l border-[#00FFFF]/80" />
+            <span className="absolute bottom-0 right-0 h-4 w-4 border-b border-r border-[#00FFFF]/80" />
           </div>
         </div>
       )}
