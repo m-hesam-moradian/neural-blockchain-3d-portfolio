@@ -9,8 +9,8 @@ import { HologramInspectorModal } from './components/HologramInspectorModal';
 import {
   ChamberConfig,
   DETAILED_CHAMBERS,
-  PLACEHOLDER_PORTFOLIO,
 } from './data/portfolioSections';
+import { RESUME_DATA } from './data/resume';
 import { PedestalMode } from './three/detailedChambers';
 import { ObsidianCyanScene } from './three/ObsidianCyanScene';
 import { ambientAudio } from './utils/ambientAudio';
@@ -272,10 +272,10 @@ export default function App() {
             {!hudHidden && (
               <div className="hidden sm:block max-w-xs space-y-1">
                 <p className="font-mono-hud text-[11px] tracking-widest text-[#00FFFF]">
-                  ////// {PLACEHOLDER_PORTFOLIO.name.toUpperCase()}
+                  ////// {RESUME_DATA.identity.name.toUpperCase()}
                 </p>
                 <p className="font-mono-hud text-[10px] leading-relaxed text-[#8A929A]">
-                  {PLACEHOLDER_PORTFOLIO.manifesto}
+                  {RESUME_DATA.identity.manifesto}
                 </p>
               </div>
             )}
