@@ -6,6 +6,9 @@ import { ScrambleText } from '../utils/scrambleText';
 
 interface HologramInspectorModalProps {
   chamber: ChamberConfig | null;
+  autoRevealAmount?: number;
+  autoEnterT?: number;
+  autoExitT?: number;
   onClose: () => void;
 }
 
@@ -67,9 +70,13 @@ const HoloBiometricSilhouette: React.FC = () => (
 
 export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
   chamber,
+  autoRevealAmount = 0,
+  autoEnterT = 0,
+  autoExitT = 0,
   onClose,
 }) => {
   const [selectedProjIdx, setSelectedProjIdx] = useState(0);
+  const [irisTab, setIrisTab] = useState<'projects' | 'experience'>('projects');
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [formState, setFormState] = useState({ name: '', email: '', message: '' });
@@ -89,8 +96,12 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [chamber, onClose]);
 
-  if (!chamber) return null;
+  const isScrollDriven = !chamber && autoRevealAmount > 0.01;
+  if (!chamber && !isScrollDriven) return null;
 
+  const activeSectionId: ChamberConfig['id'] = chamber ? chamber.id : 'drift';
+  const activeHudTitle = chamber ? chamber.hudTitle : 'NEURAL CORE · CH.02';
+  const activeSectionTag = chamber ? chamber.sectionTag : 'ABOUT ME // INSIDE CHOSEN BLOCK';
   const activeProj = RESUME_DATA.projects[selectedProjIdx] ?? RESUME_DATA.projects[0];
   const hasPhoto = Boolean(RESUME_DATA.identity.avatarUrl.trim()) && !avatarFailed;
 
@@ -114,18 +125,35 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
     setSubmitted(true);
   };
 
+  const scrollCardStyle: React.CSSProperties | undefined = isScrollDriven
+    ? {
+        opacity: autoRevealAmount,
+        transform: `translate3d(0, ${((1 - autoEnterT) * 18 - autoExitT * 14).toFixed(1)}px, 0) scale(${(
+          0.94 +
+          0.06 * autoEnterT +
+          0.03 * autoExitT
+        ).toFixed(4)})`,
+        willChange: 'transform, opacity',
+      }
+    : undefined;
+
   return (
     <div
       role="dialog"
-      aria-modal="true"
-      className="pointer-events-auto fixed inset-0 z-40 flex items-center justify-center bg-[#090C10]/32 p-3 sm:p-6 md:p-8"
-      onClick={onClose}
+      aria-modal={!isScrollDriven}
+      className={`fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6 md:p-8 ${
+        isScrollDriven ? 'pointer-events-none' : 'pointer-events-auto bg-[#090C10]/32'
+      }`}
+      onClick={!isScrollDriven ? onClose : undefined}
     >
       {/* Translucent crystalline HUD card hovering directly over the live 3D WebGL scene */}
       <div
-        key={chamber.id}
-        className="holo-window-enter relative w-full max-w-5xl max-h-[90vh] overflow-y-auto border border-[#8A929A]/40 bg-[#0D1116]/76 p-5 md:p-7 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        key={isScrollDriven ? 'scroll-about' : chamber?.id}
+        style={scrollCardStyle}
+        className={`${isScrollDriven ? 'pointer-events-none max-lg:max-h-[86vh] max-lg:overflow-y-auto' : 'holo-window-enter pointer-events-auto max-h-[90vh] overflow-y-auto'} relative w-full max-w-5xl border border-[#8A929A]/40 bg-[#0D1116]/72 p-4 md:p-6 shadow-2xl`}
+        onClick={(e) => {
+          if (!isScrollDriven) e.stopPropagation();
+        }}
       >
         {/* Crisp Pure Cyan Corner Reticle Brackets */}
         <span aria-hidden="true" className="absolute -top-[1px] -left-[1px] h-4 w-4 border-t-2 border-l-2 border-[#00FFFF]" />
@@ -133,25 +161,25 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
         <span aria-hidden="true" className="absolute -bottom-[1px] -left-[1px] h-4 w-4 border-b-2 border-l-2 border-[#00FFFF]" />
         <span aria-hidden="true" className="absolute -bottom-[1px] -right-[1px] h-4 w-4 border-b-2 border-r-2 border-[#00FFFF]" />
 
-        {/* Reference-matched Top Bar ("Outfit" display label + "JetBrains Mono | STUDY" right stamp) */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#8A929A]/25 pb-3.5 mb-5">
+        {/* Top Header Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#8A929A]/25 pb-3 mb-4">
           <div className="flex items-baseline gap-3">
             <span className="font-display-hud text-base md:text-lg font-medium tracking-tight text-[#FFFFFF]">
               {RESUME_DATA.identity.name}
             </span>
             <span className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF]">
-              // <ScrambleText text={chamber.hudTitle} />
+              // <ScrambleText text={activeHudTitle} />
             </span>
           </div>
 
           <div className="flex items-center gap-4">
             <span className="hidden sm:inline font-mono-hud text-[11px] tracking-wider text-[#8A929A]">
-              <ScrambleText text={chamber.sectionTag} durationMs={320} />
+              <ScrambleText text={activeSectionTag} durationMs={320} />
             </span>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 border border-[#00FFFF]/45 bg-[#121417]/80 px-2.5 py-1 font-mono-hud text-[11px] text-[#00FFFF] hover:bg-[#00FFFF]/15 transition-colors cursor-pointer"
+              className="pointer-events-auto inline-flex items-center gap-1.5 border border-[#00FFFF]/45 bg-[#121417]/80 px-2.5 py-1 font-mono-hud text-[11px] text-[#00FFFF] hover:bg-[#00FFFF]/15 transition-colors cursor-pointer"
             >
               CLOSE
               <X className="w-3.5 h-3.5" />
@@ -160,12 +188,12 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
         </div>
 
         {/* ===================================================================== */}
-        {/* CH.01 // SUMMIT -> CREATIVE IDENTITY CARD + HOLOGRAPHIC PORTRAIT SLOT */}
+        {/* CH.01 & CH.02 (AUTO-SCROLL ABOUT ME) -> CREATIVE IDENTITY CARD + FACE */}
         {/* ===================================================================== */}
-        {chamber.id === 'summit' && (
+        {(activeSectionId === 'summit' || activeSectionId === 'drift') && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
             {/* LEFT: Holographic Biometric Face Portrait Slot */}
-            <div className="lg:col-span-4 flex flex-col justify-between border border-[#8A929A]/30 bg-[#0A0E13]/75 p-3.5 relative">
+            <div className="lg:col-span-4 flex flex-col justify-between border border-[#8A929A]/30 bg-[#0A0E13]/72 p-3.5 relative">
               <span aria-hidden="true" className="absolute top-1.5 left-1.5 h-2.5 w-2.5 border-t border-l border-[#00FFFF]/70" />
               <span aria-hidden="true" className="absolute top-1.5 right-1.5 h-2.5 w-2.5 border-t border-r border-[#00FFFF]/70" />
               <span aria-hidden="true" className="absolute bottom-1.5 left-1.5 h-2.5 w-2.5 border-b border-l border-[#00FFFF]/70" />
@@ -176,7 +204,7 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                 <span>BIOMETRIC LOCK</span>
               </div>
 
-              <div className="relative aspect-[4/4.5] w-full overflow-hidden border border-[#00FFFF]/30 bg-[#06090D] group">
+              <div className="relative aspect-square max-h-[275px] w-full overflow-hidden border border-[#00FFFF]/30 bg-[#06090D] group">
                 {hasPhoto ? (
                   <img
                     src={RESUME_DATA.identity.avatarUrl}
@@ -317,7 +345,7 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                 </div>
               </div>
 
-              <div className="pt-4 mt-4 border-t border-[#8A929A]/20 space-y-2">
+              <div className="pt-4 mt-4 border-t border-[#8A929A]/20 space-y-2 pointer-events-auto">
                 <p className="font-mono-hud text-[9px] tracking-widest text-[#8A929A]">
                   DIRECT CHANNELS
                 </p>
@@ -355,142 +383,162 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
         )}
 
         {/* ===================================================================== */}
-        {/* CH.02 // DRIFT -> PROJECTS & SYSTEM ARCHITECTURE SCHEMATIC             */}
+        {/* CH.03 // THE IRIS -> PROJECTS ARCHITECTURE & EXPERIENCE TIMELINE      */}
         {/* ===================================================================== */}
-        {chamber.id === 'drift' && (
+        {activeSectionId === 'iris' && (
           <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              {RESUME_DATA.projects.map((proj, idx) => {
-                const isActive = idx === selectedProjIdx;
-                return (
-                  <button
-                    key={proj.id}
-                    type="button"
-                    onClick={() => setSelectedProjIdx(idx)}
-                    className={`font-mono-hud text-xs px-3 py-1.5 border transition-colors cursor-pointer ${
-                      isActive
-                        ? 'border-[#00FFFF] bg-[#00FFFF]/12 text-[#00FFFF]'
-                        : 'border-[#8A929A]/30 text-[#8A929A] hover:border-[#00FFFF]/50 hover:text-[#FFFFFF]'
-                    }`}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#8A929A]/20 pb-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIrisTab('projects')}
+                  className={`font-mono-hud text-xs px-3 py-1.5 border transition-colors cursor-pointer ${
+                    irisTab === 'projects'
+                      ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
+                      : 'border-[#8A929A]/30 text-[#8A929A] hover:text-[#FFFFFF]'
+                  }`}
+                >
+                  01 // PROJECTS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIrisTab('experience')}
+                  className={`font-mono-hud text-xs px-3 py-1.5 border transition-colors cursor-pointer ${
+                    irisTab === 'experience'
+                      ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
+                      : 'border-[#8A929A]/30 text-[#8A929A] hover:text-[#FFFFFF]'
+                  }`}
+                >
+                  02 // EXPERIENCE
+                </button>
+              </div>
+            </div>
+
+            {irisTab === 'projects' ? (
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  {RESUME_DATA.projects.map((proj, idx) => {
+                    const isActive = idx === selectedProjIdx;
+                    return (
+                      <button
+                        key={proj.id}
+                        type="button"
+                        onClick={() => setSelectedProjIdx(idx)}
+                        className={`font-mono-hud text-xs px-3 py-1.5 border transition-colors cursor-pointer ${
+                          isActive
+                            ? 'border-[#00FFFF] bg-[#00FFFF]/12 text-[#00FFFF]'
+                            : 'border-[#8A929A]/30 text-[#8A929A] hover:border-[#00FFFF]/50 hover:text-[#FFFFFF]'
+                        }`}
+                      >
+                        {proj.id}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+                  <div className="md:col-span-8 border border-[#8A929A]/25 bg-[#0A0E13]/70 p-5 space-y-4">
+                    <div className="flex items-center justify-between font-mono-hud text-[11px] text-[#FFFFFF]">
+                      <span className="tracking-widest">SYSTEM ARCHITECTURE // {activeProj.category}</span>
+                      <span className="text-[#00FFFF]">{activeProj.year}</span>
+                    </div>
+
+                    <div className="border border-dashed border-[#8A929A]/30 bg-[#070A0E]/60 p-3">
+                      <svg viewBox="0 0 520 120" className="w-full h-24 md:h-28" fill="none" aria-hidden="true">
+                        <rect x="8" y="20" width="90" height="80" stroke="#8A929A" strokeOpacity="0.6" />
+                        <circle cx="53" cy="60" r="22" stroke="#00FFFF" strokeOpacity="0.45" />
+                        <line x1="35" y1="48" x2="71" y2="72" stroke="#FFFFFF" strokeOpacity="0.6" />
+                        <line x1="35" y1="72" x2="71" y2="48" stroke="#00FFFF" strokeOpacity="0.6" />
+                        <text x="53" y="14" textAnchor="middle" fill="#8A929A" fontSize="8" fontFamily="JetBrains Mono, monospace">
+                          NEURAL INPUT
+                        </text>
+
+                        <path d="M98 44 L164 44" stroke="#FFFFFF" strokeOpacity="0.7" />
+                        <path d="M98 76 C125 76, 130 88, 164 88" stroke="#00FFFF" strokeOpacity="0.7" />
+
+                        <rect x="164" y="18" width="96" height="46" stroke="#FFFFFF" strokeOpacity="0.7" />
+                        <line x1="176" y1="26" x2="248" y2="56" stroke="#00FFFF" strokeOpacity="0.55" />
+                        <line x1="248" y1="26" x2="176" y2="56" stroke="#00FFFF" strokeOpacity="0.55" />
+                        <text x="212" y="12" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontFamily="JetBrains Mono, monospace">
+                          ATTENTION
+                        </text>
+
+                        <rect x="164" y="74" width="96" height="32" stroke="#8A929A" strokeOpacity="0.6" />
+                        <text x="212" y="93" textAnchor="middle" fill="#00FFFF" fontSize="8" fontFamily="JetBrains Mono, monospace">
+                          CONSENSUS
+                        </text>
+
+                        <path d="M260 40 C295 40, 305 58, 344 58" stroke="#FFFFFF" strokeOpacity="0.75" />
+                        <path d="M260 90 C295 90, 305 64, 344 64" stroke="#00FFFF" strokeOpacity="0.75" />
+
+                        <rect x="344" y="20" width="164" height="80" stroke="#8A929A" strokeOpacity="0.65" />
+                        <rect x="360" y="38" width="54" height="42" stroke="#00FFFF" strokeOpacity="0.6" />
+                        <rect x="434" y="38" width="54" height="42" stroke="#FFFFFF" strokeOpacity="0.55" />
+                        <line x1="414" y1="59" x2="434" y2="59" stroke="#00FFFF" strokeOpacity="0.8" />
+                        <text x="426" y="14" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontFamily="JetBrains Mono, monospace">
+                          NODE INFRASTRUCTURE
+                        </text>
+                      </svg>
+                    </div>
+
+                    <div>
+                      <h3 className="font-display-hud text-lg font-medium text-[#FFFFFF]">{activeProj.title}</h3>
+                      <p className="text-sm leading-relaxed text-[#A7B0B8] mt-1">{activeProj.summary}</p>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-[#8A929A]/20 font-mono-hud text-xs text-[#FFFFFF]">
+                      STACK: <span className="text-[#00FFFF]">{activeProj.stack}</span>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-4 border border-[#8A929A]/25 bg-[#0A0E13]/70 p-5 space-y-4">
+                    <p className="font-mono-hud text-xs tracking-[0.14em] text-[#FFFFFF]">
+                      PERFORMANCE
+                    </p>
+                    <div className="space-y-3 font-mono-hud text-xs">
+                      <div className="flex justify-between items-center bg-gradient-to-r from-[#8A929A]/35 via-[#8A929A]/14 to-transparent px-2.5 py-2 border-l-2 border-[#00FFFF]">
+                        <span className="text-[#8A929A]">LATENCY:</span>
+                        <span className="text-[#FFFFFF]">{activeProj.latency}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-[#8A929A]/15 pb-2 px-1">
+                        <span className="text-[#8A929A]">THROUGHPUT:</span>
+                        <span className="text-[#FFFFFF]">{activeProj.throughput}</span>
+                      </div>
+                      <div className="flex justify-between px-1">
+                        <span className="text-[#8A929A]">EFFICIENCY:</span>
+                        <span className="text-[#00FFFF]">{activeProj.efficiency}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {RESUME_DATA.experience.map((exp) => (
+                  <div
+                    key={exp.company}
+                    className="border border-[#8A929A]/25 bg-[#0A0E13]/70 p-4 grid grid-cols-1 md:grid-cols-12 gap-4 hover:border-[#00FFFF]/40 transition-colors"
                   >
-                    {proj.id}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-              <div className="md:col-span-8 border border-[#8A929A]/25 bg-[#0A0E13]/70 p-5 space-y-4">
-                <div className="flex items-center justify-between font-mono-hud text-[11px] text-[#FFFFFF]">
-                  <span className="tracking-widest">SYSTEM ARCHITECTURE // {activeProj.category}</span>
-                  <span className="text-[#00FFFF]">{activeProj.year}</span>
-                </div>
-
-                {/* Schematic Flow Diagram matching attached concept */}
-                <div className="border border-dashed border-[#8A929A]/30 bg-[#070A0E]/60 p-3">
-                  <svg viewBox="0 0 520 120" className="w-full h-24 md:h-28" fill="none" aria-hidden="true">
-                    {/* Input Neural Graph Node */}
-                    <rect x="8" y="20" width="90" height="80" stroke="#8A929A" strokeOpacity="0.6" />
-                    <circle cx="53" cy="60" r="22" stroke="#00FFFF" strokeOpacity="0.45" />
-                    <line x1="35" y1="48" x2="71" y2="72" stroke="#FFFFFF" strokeOpacity="0.6" />
-                    <line x1="35" y1="72" x2="71" y2="48" stroke="#00FFFF" strokeOpacity="0.6" />
-                    <text x="53" y="14" textAnchor="middle" fill="#8A929A" fontSize="8" fontFamily="JetBrains Mono, monospace">
-                      NEURAL INPUT
-                    </text>
-
-                    {/* Flow Arrows 1 -> 2 */}
-                    <path d="M98 44 L164 44" stroke="#FFFFFF" strokeOpacity="0.7" />
-                    <path d="M98 76 C125 76, 130 88, 164 88" stroke="#00FFFF" strokeOpacity="0.7" />
-
-                    {/* Attention / Protocol Mechanism */}
-                    <rect x="164" y="18" width="96" height="46" stroke="#FFFFFF" strokeOpacity="0.7" />
-                    <line x1="176" y1="26" x2="248" y2="56" stroke="#00FFFF" strokeOpacity="0.55" />
-                    <line x1="248" y1="26" x2="176" y2="56" stroke="#00FFFF" strokeOpacity="0.55" />
-                    <text x="212" y="12" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontFamily="JetBrains Mono, monospace">
-                      ATTENTION
-                    </text>
-
-                    <rect x="164" y="74" width="96" height="32" stroke="#8A929A" strokeOpacity="0.6" />
-                    <text x="212" y="93" textAnchor="middle" fill="#00FFFF" fontSize="8" fontFamily="JetBrains Mono, monospace">
-                      CONSENSUS
-                    </text>
-
-                    {/* Branch to Distributed Infrastructure */}
-                    <path d="M260 40 C295 40, 305 58, 344 58" stroke="#FFFFFF" strokeOpacity="0.75" />
-                    <path d="M260 90 C295 90, 305 64, 344 64" stroke="#00FFFF" strokeOpacity="0.75" />
-
-                    {/* Node Infrastructure Cluster */}
-                    <rect x="344" y="20" width="164" height="80" stroke="#8A929A" strokeOpacity="0.65" />
-                    <rect x="360" y="38" width="54" height="42" stroke="#00FFFF" strokeOpacity="0.6" />
-                    <rect x="434" y="38" width="54" height="42" stroke="#FFFFFF" strokeOpacity="0.55" />
-                    <line x1="414" y1="59" x2="434" y2="59" stroke="#00FFFF" strokeOpacity="0.8" />
-                    <text x="426" y="14" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontFamily="JetBrains Mono, monospace">
-                      NODE INFRASTRUCTURE
-                    </text>
-                  </svg>
-                </div>
-
-                <div>
-                  <h3 className="font-display-hud text-lg font-medium text-[#FFFFFF]">{activeProj.title}</h3>
-                  <p className="text-sm leading-relaxed text-[#A7B0B8] mt-1">{activeProj.summary}</p>
-                </div>
-
-                <div className="pt-2.5 border-t border-[#8A929A]/20 font-mono-hud text-xs text-[#FFFFFF]">
-                  STACK: <span className="text-[#00FFFF]">{activeProj.stack}</span>
-                </div>
-              </div>
-
-              <div className="md:col-span-4 border border-[#8A929A]/25 bg-[#0A0E13]/70 p-5 space-y-4">
-                <p className="font-mono-hud text-xs tracking-[0.14em] text-[#FFFFFF]">
-                  PERFORMANCE
-                </p>
-                <div className="space-y-3 font-mono-hud text-xs">
-                  <div className="flex justify-between items-center bg-gradient-to-r from-[#8A929A]/35 via-[#8A929A]/14 to-transparent px-2.5 py-2 border-l-2 border-[#00FFFF]">
-                    <span className="text-[#8A929A]">LATENCY:</span>
-                    <span className="text-[#FFFFFF]">{activeProj.latency}</span>
+                    <div className="md:col-span-4 space-y-1">
+                      <p className="font-mono-hud text-xs text-[#00FFFF]">{exp.period}</p>
+                      <p className="font-display-hud text-sm font-medium text-[#FFFFFF]">{exp.role}</p>
+                      <p className="font-mono-hud text-[11px] text-[#8A929A]">{exp.company}</p>
+                    </div>
+                    <div className="md:col-span-8 space-y-2">
+                      <p className="text-xs leading-relaxed text-[#A7B0B8]">{exp.detail}</p>
+                      <p className="font-mono-hud text-[11px] text-[#FFFFFF]">{exp.stack}</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between border-b border-[#8A929A]/15 pb-2 px-1">
-                    <span className="text-[#8A929A]">THROUGHPUT:</span>
-                    <span className="text-[#FFFFFF]">{activeProj.throughput}</span>
-                  </div>
-                  <div className="flex justify-between px-1">
-                    <span className="text-[#8A929A]">EFFICIENCY:</span>
-                    <span className="text-[#00FFFF]">{activeProj.efficiency}</span>
-                  </div>
-                </div>
+                ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* ===================================================================== */}
-        {/* CH.03 // THE IRIS -> CAREER EXPERIENCE TIMELINE                        */}
-        {/* ===================================================================== */}
-        {chamber.id === 'iris' && (
-          <div className="space-y-3.5">
-            {RESUME_DATA.experience.map((exp) => (
-              <div
-                key={exp.company}
-                className="border border-[#8A929A]/25 bg-[#0A0E13]/70 p-4 grid grid-cols-1 md:grid-cols-12 gap-4 hover:border-[#00FFFF]/40 transition-colors"
-              >
-                <div className="md:col-span-4 space-y-1">
-                  <p className="font-mono-hud text-xs text-[#00FFFF]">{exp.period}</p>
-                  <p className="font-display-hud text-sm font-medium text-[#FFFFFF]">{exp.role}</p>
-                  <p className="font-mono-hud text-[11px] text-[#8A929A]">{exp.company}</p>
-                </div>
-                <div className="md:col-span-8 space-y-2">
-                  <p className="text-xs leading-relaxed text-[#A7B0B8]">{exp.detail}</p>
-                  <p className="font-mono-hud text-[11px] text-[#FFFFFF]">{exp.stack}</p>
-                </div>
-              </div>
-            ))}
+            )}
           </div>
         )}
 
         {/* ===================================================================== */}
         {/* CH.04 // THE PEDESTAL -> CONTACT UPLINK TERMINAL                       */}
         {/* ===================================================================== */}
-        {chamber.id === 'pedestal' && (
+        {activeSectionId === 'pedestal' && (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             <div className="md:col-span-5 space-y-4">
               <p className="font-mono-hud text-xs text-[#00FFFF]">DIRECT CHANNEL</p>

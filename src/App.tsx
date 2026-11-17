@@ -22,6 +22,11 @@ const PEDESTAL_MODES: { id: PedestalMode; label: string }[] = [
   { id: 'helix', label: '03 // PROTOCOL_HELIX' },
 ];
 
+const smoothstep = (edge0: number, edge1: number, x: number): number => {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
+
 export default function App() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeChamberIdx, setActiveChamberIdx] = useState(0);
@@ -32,6 +37,7 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [hudHidden, setHudHidden] = useState(false);
   const [inspectedChamber, setInspectedChamber] = useState<ChamberConfig | null>(null);
+  const [dismissedAutoAbout, setDismissedAutoAbout] = useState(false);
 
   const calloutPrimaryRef = useRef<HTMLButtonElement | null>(null);
   const calloutSecondaryRef = useRef<HTMLButtonElement | null>(null);
@@ -43,6 +49,9 @@ export default function App() {
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       const progress = Math.min(1, Math.max(0, window.scrollY / maxScroll));
       setScrollProgress(progress);
+      if (progress < 0.22 || progress > 0.53) {
+        setDismissedAutoAbout(false);
+      }
     };
 
     const onScroll = () => {
@@ -109,6 +118,10 @@ export default function App() {
   }, []);
 
   const activeChamber = DETAILED_CHAMBERS[activeChamberIdx] ?? DETAILED_CHAMBERS[0];
+  const autoEnterT = smoothstep(0.25, 0.33, scrollProgress);
+  const autoExitT = smoothstep(0.42, 0.50, scrollProgress);
+  const autoAboutAmount =
+    hudHidden || dismissedAutoAbout || inspectedChamber ? 0 : autoEnterT * (1 - autoExitT);
 
   return (
     <div className="relative bg-[#121417] text-[#FFFFFF]">
@@ -234,22 +247,26 @@ export default function App() {
       )}
 
       {/* CH.02 Center Hero Neuron Corner-Bracket Reticle */}
-      {!hudHidden && activeChamberIdx === 1 && warpIntensity < 0.35 && !isOrbiting && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-15 flex items-center justify-center"
-        >
-          <div className="relative h-44 w-44 md:h-52 md:w-52">
-            <span className="absolute -top-5 right-0 font-mono-hud text-[9px] tracking-widest text-[#00FFFF]/80">
-              NEURON_0x0A
-            </span>
-            <span className="absolute top-0 left-0 h-4 w-4 border-t border-l border-[#00FFFF]/80" />
-            <span className="absolute top-0 right-0 h-4 w-4 border-t border-r border-[#00FFFF]/80" />
-            <span className="absolute bottom-0 left-0 h-4 w-4 border-b border-l border-[#00FFFF]/80" />
-            <span className="absolute bottom-0 right-0 h-4 w-4 border-b border-r border-[#00FFFF]/80" />
+      {!hudHidden &&
+        activeChamberIdx === 1 &&
+        warpIntensity < 0.35 &&
+        !isOrbiting &&
+        autoAboutAmount < 0.15 && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed inset-0 z-15 flex items-center justify-center"
+          >
+            <div className="relative h-44 w-44 md:h-52 md:w-52">
+              <span className="absolute -top-5 right-0 font-mono-hud text-[9px] tracking-widest text-[#00FFFF]/80">
+                NEURON_0x0A
+              </span>
+              <span className="absolute top-0 left-0 h-4 w-4 border-t border-l border-[#00FFFF]/80" />
+              <span className="absolute top-0 right-0 h-4 w-4 border-t border-r border-[#00FFFF]/80" />
+              <span className="absolute bottom-0 left-0 h-4 w-4 border-b border-l border-[#00FFFF]/80" />
+              <span className="absolute bottom-0 right-0 h-4 w-4 border-b border-r border-[#00FFFF]/80" />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Minimal Igloo-Style Corner HUD Overlay */}
       <div className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between p-5 md:p-7">
@@ -408,10 +425,19 @@ export default function App() {
         )}
       </div>
 
-      {/* Bracketed Holographic Inspector Modal (Phase 3 Lorem Ipsum Portfolio Content) */}
+      {/* Bracketed Holographic Inspector Modal + Auto Scroll-Driven About Me Window */}
       <HologramInspectorModal
         chamber={inspectedChamber}
-        onClose={() => setInspectedChamber(null)}
+        autoRevealAmount={autoAboutAmount}
+        autoEnterT={autoEnterT}
+        autoExitT={autoExitT}
+        onClose={() => {
+          if (inspectedChamber) {
+            setInspectedChamber(null);
+          } else {
+            setDismissedAutoAbout(true);
+          }
+        }}
       />
 
       {/* 800vh Scroll Driver */}

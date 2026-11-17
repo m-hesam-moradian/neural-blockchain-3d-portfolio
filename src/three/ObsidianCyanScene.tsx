@@ -88,12 +88,12 @@ function sampleDetailedFlight(
 
   let warpIntensity = 0;
   let portalFlyProgress = 0;
-  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.3);
+  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.28);
   // Slowly fade the front 0/1 wall opacity & reveal the Neural Network smoothly between 0 and 1
-  const frontWallFade = THREE.MathUtils.smoothstep(p, 0.06, 0.34);
-  const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.06, 0.32);
+  const frontWallFade = THREE.MathUtils.smoothstep(p, 0.05, 0.31);
+  const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.05, 0.30);
 
-  // Segment 1: CH.01 Chained 0/1 Blocks (0.00) -> 27 blocks explode slowly & camera shrinks inside Chosen Block (0.36)
+  // Segment 1: CH.01 Chained 0/1 Blocks (0.00) -> 27 blocks explode slowly & camera shrinks inside Chosen Block (0.34)
   if (p <= DETAILED_CHAMBERS[1].scrollAt) {
     const span = DETAILED_CHAMBERS[1].scrollAt;
     const u = p / span;
@@ -124,24 +124,49 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 2: CH.02 Inside Chosen Block (0.36) -> Order Mix Up -> Shrink Inside Hero Round Neuron -> CH.03 Iris Canyon (0.68)
+  // Segment 2: CH.02 Inside Chosen Block (0.34) -> About Me window hold -> Fade out + dive into Neuron -> CH.03 Iris (0.68)
   if (p <= DETAILED_CHAMBERS[2].scrollAt) {
     const u =
       (p - DETAILED_CHAMBERS[1].scrollAt) /
       (DETAILED_CHAMBERS[2].scrollAt - DETAILED_CHAMBERS[1].scrollAt);
 
-    const neuralMixProgress = THREE.MathUtils.smoothstep(u, 0.04, 0.36);
-    const enterNeuronProgress = THREE.MathUtils.smoothstep(u, 0.36, 0.64);
+    const neuralMixProgress = THREE.MathUtils.smoothstep(u, 0.18, 0.48);
+    const enterNeuronProgress = THREE.MathUtils.smoothstep(u, 0.46, 0.72);
 
-    if (u < 0.38) {
-      // Phase 2A: Neurons mix order while camera zooms toward Hero Round Neuron at (0, 1.55, -0.0312)
-      const t = u / 0.38;
+    if (u < 0.22) {
+      // Phase 2A: Gentle Showcase Drift while About Me Holographic Card is displayed cleanly over the Neural Net
+      const t = u / 0.22;
       const eased = t * t * (3 - 2 * t);
       _vA.set(...DETAILED_CHAMBERS[1].camPos); // (0, 1.56, 0.52)
-      _vB.set(0, 1.55, 0.11);
+      _vB.set(0, 1.55, 0.36);
       outPos.lerpVectors(_vA, _vB, eased);
 
       _vC.set(...DETAILED_CHAMBERS[1].camTarget); // (0, 1.55, 0)
+      _vD.set(0, 1.55, -0.015);
+      outTarget.lerpVectors(_vC, _vD, eased);
+
+      return {
+        chamberIdx,
+        warpIntensity: 0,
+        portalFlyProgress: 0,
+        summitExplodeProgress: 1,
+        neuralRevealProgress: 1,
+        neuralMixProgress,
+        enterNeuronProgress,
+        horizontalWarp: true,
+        nearPlane: 0.004,
+        farPlane: 40,
+        frontWallFade: 1,
+      };
+    } else if (u < 0.48) {
+      // Phase 2B: Window gently disappears WHILE neurons mix order & camera glides closer to Hero Round Neuron
+      const t = (u - 0.22) / 0.26;
+      const eased = t * t * (3 - 2 * t);
+      _vA.set(0, 1.55, 0.36);
+      _vB.set(0, 1.55, 0.11);
+      outPos.lerpVectors(_vA, _vB, eased);
+
+      _vC.set(0, 1.55, -0.015);
       _vD.set(0, 1.55, -0.0312);
       outTarget.lerpVectors(_vC, _vD, eased);
 
@@ -155,12 +180,12 @@ function sampleDetailedFlight(
         enterNeuronProgress,
         horizontalWarp: true,
         nearPlane: THREE.MathUtils.lerp(0.004, 0.0014, eased),
-        farPlane: THREE.MathUtils.lerp(42, 24, eased),
+        farPlane: THREE.MathUtils.lerp(40, 24, eased),
         frontWallFade: 1,
       };
-    } else if (u < 0.64) {
-      // Phase 2B: Camera shrinks straight INSIDE Hero Round Neuron
-      const t = (u - 0.38) / 0.26;
+    } else if (u < 0.72) {
+      // Phase 2C: Camera shrinks straight INSIDE Hero Round Neuron
+      const t = (u - 0.48) / 0.24;
       const eased = t * t * (3 - 2 * t);
       _vA.set(0, 1.55, 0.11);
       _vB.set(0, 1.55, -0.06);
@@ -184,8 +209,8 @@ function sampleDetailedFlight(
         frontWallFade: 1,
       };
     } else {
-      // Phase 2C: Exit out bottom/back of Chosen Block down subterranean shaft into CH.03 Iris Canyon
-      const t = (u - 0.64) / 0.36;
+      // Phase 2D: Exit out bottom/back of Chosen Block down subterranean shaft into CH.03 Iris Canyon
+      const t = (u - 0.72) / 0.28;
       const eased = 1 - Math.pow(1 - t, 3);
       _vA.set(0, 1.55, -0.06);
       _vB.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -6.0)
@@ -725,7 +750,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
 
       // Project primary & secondary spatial leader-line callouts for active chamber
       const activeCh = DETAILED_CHAMBERS[chamberIdx];
-      const hideCallouts = warpIntensity > 0.45;
+      const windowActive = scrollRef.current >= 0.25 && scrollRef.current <= 0.50;
+      const hideCallouts = warpIntensity > 0.45 || windowActive;
       projectToButton(
         calloutPrimaryRef.current,
         activeCh.calloutOffsets.primary[0],
