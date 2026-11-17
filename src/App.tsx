@@ -3,29 +3,66 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
-import { HologramInspectorModal } from './components/HologramInspectorModal';
-import {
-  ChamberConfig,
-  DETAILED_CHAMBERS,
-} from './data/portfolioSections';
+import { HologramInspectorModal, ScrollCardKind } from './components/HologramInspectorModal';
+import { DETAILED_CHAMBERS } from './data/portfolioSections';
 import { RESUME_DATA } from './data/resume';
 import { PedestalMode } from './three/detailedChambers';
 import { ObsidianCyanScene } from './three/ObsidianCyanScene';
 import { ambientAudio } from './utils/ambientAudio';
 import { ScrambleText } from './utils/scrambleText';
 
-const PEDESTAL_MODES: { id: PedestalMode; label: string }[] = [
-  { id: 'blockchain', label: '01 // BLOCKCHAIN_GRAPH' },
-  { id: 'neural', label: '02 // NEURAL_WAVE' },
-  { id: 'helix', label: '03 // PROTOCOL_HELIX' },
-];
-
 const smoothstep = (edge0: number, edge1: number, x: number): number => {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
 };
+
+interface ScrollCardState {
+  activeCard: ScrollCardKind | null;
+  revealAmount: number;
+  enterT: number;
+  exitT: number;
+}
+
+function getScrollCardState(progress: number): ScrollCardState {
+  // CH.02 // ABOUT ME (enters 0.25->0.32, holds, fades out 0.41->0.49 with neuron dive)
+  if (progress >= 0.25 && progress <= 0.49) {
+    const enterT = smoothstep(0.25, 0.32, progress);
+    const exitT = smoothstep(0.41, 0.49, progress);
+    return {
+      activeCard: 'about',
+      revealAmount: enterT * (1 - exitT),
+      enterT,
+      exitT,
+    };
+  }
+
+  // CH.03 // WORK (enters 0.63->0.69, holds, fades out 0.77->0.85 with iris plunge)
+  if (progress >= 0.63 && progress <= 0.85) {
+    const enterT = smoothstep(0.63, 0.69, progress);
+    const exitT = smoothstep(0.77, 0.85, progress);
+    return {
+      activeCard: 'work',
+      revealAmount: enterT * (1 - exitT),
+      enterT,
+      exitT,
+    };
+  }
+
+  // CH.04 // CONTACT (enters 0.91->0.96, remains open at pedestal 1.00)
+  if (progress >= 0.91) {
+    const enterT = smoothstep(0.91, 0.96, progress);
+    return {
+      activeCard: 'contact',
+      revealAmount: enterT,
+      enterT,
+      exitT: 0,
+    };
+  }
+
+  return { activeCard: null, revealAmount: 0, enterT: 0, exitT: 0 };
+}
 
 export default function App() {
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -36,11 +73,6 @@ export default function App() {
   const [cameraResetNonce, setCameraResetNonce] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [hudHidden, setHudHidden] = useState(false);
-  const [inspectedChamber, setInspectedChamber] = useState<ChamberConfig | null>(null);
-  const [dismissedAutoAbout, setDismissedAutoAbout] = useState(false);
-
-  const calloutPrimaryRef = useRef<HTMLButtonElement | null>(null);
-  const calloutSecondaryRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let raf = 0;
@@ -49,9 +81,6 @@ export default function App() {
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       const progress = Math.min(1, Math.max(0, window.scrollY / maxScroll));
       setScrollProgress(progress);
-      if (progress < 0.22 || progress > 0.53) {
-        setDismissedAutoAbout(false);
-      }
     };
 
     const onScroll = () => {
@@ -70,13 +99,6 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-      ) {
-        return;
-      }
       if (e.key === 'h' || e.key === 'H') {
         setHudHidden((prev) => !prev);
       }
@@ -118,10 +140,7 @@ export default function App() {
   }, []);
 
   const activeChamber = DETAILED_CHAMBERS[activeChamberIdx] ?? DETAILED_CHAMBERS[0];
-  const autoEnterT = smoothstep(0.25, 0.33, scrollProgress);
-  const autoExitT = smoothstep(0.42, 0.50, scrollProgress);
-  const autoAboutAmount =
-    hudHidden || dismissedAutoAbout || inspectedChamber ? 0 : autoEnterT * (1 - autoExitT);
+  const cardState = getScrollCardState(scrollProgress);
 
   return (
     <div className="relative bg-[#121417] text-[#FFFFFF]">
@@ -130,262 +149,81 @@ export default function App() {
         scrollProgress={scrollProgress}
         pedestalMode={pedestalMode}
         cameraResetNonce={cameraResetNonce}
-        calloutPrimaryRef={calloutPrimaryRef}
-        calloutSecondaryRef={calloutSecondaryRef}
         onTelemetryUpdate={handleTelemetryUpdate}
       />
 
-      {/* Portal / Warp Pure Cyan Atmospheric Flash (kept subtle to preserve #121417 dark graphite contrast) */}
+      {/* Subtle Pure Cyan Portal Warp Flash */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-10 bg-[#00FFFF]"
         style={{ opacity: warpIntensity * 0.05, transition: 'opacity 60ms linear' }}
       />
 
-      {/* Projected 3D Spatial Callout Pins (matching reference video leader lines) */}
+      {/* Minimal Edge HUD Overlay */}
       {!hudHidden && (
-        <>
-          <button
-            ref={calloutPrimaryRef}
-            type="button"
-            onClick={() => {
-              ambientAudio.playPulse();
-              setInspectedChamber(activeChamber);
-            }}
-            style={{ position: 'fixed', top: 0, left: 0, opacity: 0 }}
-            className="z-20 group flex items-start gap-2.5 text-left cursor-pointer"
-          >
-            <span className="mt-2 h-[1px] w-9 bg-[#00FFFF] group-hover:w-12 transition-all duration-150" />
-            <span className="border-l border-[#00FFFF]/80 bg-[#121417]/75 px-2.5 py-1.5 group-hover:border-[#00FFFF] group-hover:bg-[#121417]/95 transition-colors">
-              <span className="block font-mono-hud text-[11px] font-medium tracking-wider text-[#FFFFFF]">
-                {activeChamber.calloutPrimaryTitle}
-              </span>
-              <span className="block font-mono-hud text-[10px] tracking-wider text-[#00FFFF]">
-                {activeChamber.calloutPrimarySub}
-              </span>
-            </span>
-          </button>
-
-          <button
-            ref={calloutSecondaryRef}
-            type="button"
-            onClick={() => {
-              ambientAudio.playPulse();
-              setInspectedChamber(activeChamber);
-            }}
-            style={{ position: 'fixed', top: 0, left: 0, opacity: 0 }}
-            className="hidden md:flex z-20 group items-start gap-2.5 text-right cursor-pointer"
-          >
-            <span className="border-r border-[#8A929A]/60 bg-[#121417]/70 px-2.5 py-1.5 group-hover:border-[#00FFFF] transition-colors">
-              <span className="block font-mono-hud text-[10px] tracking-wider text-[#FFFFFF]">
-                {activeChamber.calloutSecondaryTitle}
-              </span>
-              <span className="block font-mono-hud text-[10px] tracking-wider text-[#8A929A] group-hover:text-[#00FFFF]">
-                {activeChamber.calloutSecondarySub}
-              </span>
-            </span>
-            <span className="mt-2 h-[1px] w-8 bg-[#8A929A]/70 group-hover:bg-[#00FFFF]" />
-          </button>
-        </>
-      )}
-
-      {/* Left & Right Vertical Millimeter Scale Rulers (matching reference screenshots) */}
-      {!hudHidden && (
-        <>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none fixed left-3 md:left-5 top-1/2 -translate-y-1/2 z-20 hidden sm:flex flex-col items-start gap-2.5 opacity-60"
-          >
-            {Array.from({ length: 19 }).map((_, idx) => (
-              <span
-                key={idx}
-                className={`block h-[1px] ${
-                  idx % 6 === 0 ? 'w-3 bg-[#00FFFF]/80' : 'w-1.5 bg-[#8A929A]'
-                }`}
-              />
-            ))}
-          </div>
-
-          <div
-            aria-hidden="true"
-            className="pointer-events-none fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-20 hidden sm:flex flex-col items-end gap-2.5 opacity-65"
-          >
-            <div className="relative flex flex-col items-end gap-2.5">
-              {Array.from({ length: 19 }).map((_, idx) => (
-                <span
-                  key={idx}
-                  className={`block h-[1px] ${
-                    idx % 6 === 0 ? 'w-3 bg-[#00FFFF]/80' : 'w-1.5 bg-[#8A929A]'
-                  }`}
-                />
-              ))}
-              {/* Elevation cursor along right ruler */}
-              <span
-                className="absolute right-0 w-4 h-[2px] bg-[#00FFFF] transition-all duration-75"
-                style={{ top: `${Math.round(scrollProgress * 100)}%` }}
-              />
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* CH.01 Bottom-Left Circular Telemetry Radar Reticle */}
-      {!hudHidden && activeChamberIdx === 0 && warpIntensity < 0.3 && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed left-7 bottom-16 z-20 hidden md:flex items-center gap-3 opacity-65"
-        >
-          <div className="relative h-14 w-14 rounded-full border border-[#8A929A]/45 flex items-center justify-center">
-            <div className="h-9 w-9 rounded-full border border-[#00FFFF]/60 border-t-transparent animate-[spin_9s_linear_infinite]" />
-            <span className="absolute h-1.5 w-1.5 rounded-full bg-[#00FFFF]" />
-          </div>
-          <div className="font-mono-hud text-[9px] leading-tight tracking-widest text-[#8A929A]">
-            <p className="text-[#00FFFF]">LEDGER // CHAINED</p>
-            <p>BLOCKS: 27 · BINARY 0/1</p>
-          </div>
-        </div>
-      )}
-
-      {/* CH.02 Center Hero Neuron Corner-Bracket Reticle */}
-      {!hudHidden &&
-        activeChamberIdx === 1 &&
-        warpIntensity < 0.35 &&
-        !isOrbiting &&
-        autoAboutAmount < 0.15 && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none fixed inset-0 z-15 flex items-center justify-center"
-          >
-            <div className="relative h-44 w-44 md:h-52 md:w-52">
-              <span className="absolute -top-5 right-0 font-mono-hud text-[9px] tracking-widest text-[#00FFFF]/80">
-                NEURON_0x0A
-              </span>
-              <span className="absolute top-0 left-0 h-4 w-4 border-t border-l border-[#00FFFF]/80" />
-              <span className="absolute top-0 right-0 h-4 w-4 border-t border-r border-[#00FFFF]/80" />
-              <span className="absolute bottom-0 left-0 h-4 w-4 border-b border-l border-[#00FFFF]/80" />
-              <span className="absolute bottom-0 right-0 h-4 w-4 border-b border-r border-[#00FFFF]/80" />
-            </div>
-          </div>
-        )}
-
-      {/* Minimal Igloo-Style Corner HUD Overlay */}
-      <div className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between p-5 md:p-7">
-        {/* Top Row */}
-        <div className="flex items-start justify-between gap-6">
-          {!hudHidden ? (
-            <div className="space-y-1">
-              <p className="font-mono-hud text-xs md:text-sm font-medium tracking-widest text-[#FFFFFF]">
+        <div className="pointer-events-none fixed inset-0 z-20 flex flex-col justify-between p-5 md:p-7">
+          {/* Top Row: Clean Chapter Stamp Left, Crisp Identity Right */}
+          <div className="flex items-start justify-between gap-6">
+            <div className="space-y-0.5">
+              <p className="font-mono-hud text-xs font-medium tracking-widest text-[#FFFFFF]">
                 <ScrambleText text={activeChamber.hudTitle} />
               </p>
-              <p className="font-mono-hud text-[11px] tracking-wider text-[#00FFFF]">
+              <p className="font-mono-hud text-[10px] tracking-wider text-[#00FFFF]">
                 <ScrambleText text={activeChamber.sectionTag} durationMs={320} />
               </p>
             </div>
-          ) : (
-            <div />
-          )}
 
-          <div className="flex flex-col items-end gap-2 text-right">
-            {!hudHidden && (
-              <div className="hidden sm:block max-w-xs space-y-1">
+            <div className="flex items-center gap-3 text-right">
+              <div className="hidden sm:block space-y-0.5">
                 <p className="font-mono-hud text-[11px] tracking-widest text-[#00FFFF]">
-                  ////// {RESUME_DATA.identity.name.toUpperCase()}
+                  {RESUME_DATA.identity.name.toUpperCase()}
                 </p>
-                <p className="font-mono-hud text-[10px] leading-relaxed text-[#8A929A]">
-                  {RESUME_DATA.identity.manifesto}
+                <p className="font-mono-hud text-[10px] text-[#8A929A]">
+                  {RESUME_DATA.identity.role}
                 </p>
               </div>
-            )}
-
-            <div className="pointer-events-auto flex items-center gap-2">
-              {!hudHidden && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    ambientAudio.playPulse();
-                    setInspectedChamber(activeChamber);
-                  }}
-                  className="font-mono-hud text-[11px] tracking-wider border border-[#00FFFF]/60 bg-[#121417]/85 px-3 py-1.5 text-[#00FFFF] hover:bg-[#00FFFF]/15 transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  [ {activeChamber.actionLabel} ]
-                </button>
-              )}
-
-              {isOrbiting && !hudHidden && (
+              {isOrbiting && (
                 <button
                   type="button"
                   onClick={() => setCameraResetNonce((n) => n + 1)}
-                  className="font-mono-hud text-[11px] tracking-wider border border-[#8A929A]/50 bg-[#121417]/85 px-2.5 py-1.5 text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors cursor-pointer whitespace-nowrap"
+                  className="pointer-events-auto font-mono-hud text-[10px] tracking-wider border border-[#8A929A]/50 bg-[#121417]/80 px-2.5 py-1 text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors cursor-pointer"
                 >
-                  RESET ANGLE
+                  RESET VIEW
                 </button>
               )}
-
-              <button
-                type="button"
-                onClick={() => setHudHidden((h) => !h)}
-                className="font-mono-hud text-[11px] tracking-wider border border-[#8A929A]/40 bg-[#121417]/80 px-2.5 py-1.5 text-[#8A929A] hover:text-[#FFFFFF] hover:border-[#00FFFF]/50 transition-colors cursor-pointer whitespace-nowrap"
-                title="Toggle HUD (H)"
-              >
-                {hudHidden ? 'SHOW HUD' : 'HIDE HUD'}
-              </button>
             </div>
           </div>
-        </div>
 
-        {/* Pedestal Interactive Mode Switcher when inside CH.04 */}
-        {!hudHidden && activeChamberIdx === 3 && (
-          <div className="pointer-events-auto mx-auto flex flex-wrap items-center justify-center gap-1.5 border border-[#00FFFF]/35 bg-[#121417]/90 px-3 py-2">
-            {PEDESTAL_MODES.map((m) => {
-              const isSelected = pedestalMode === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    ambientAudio.playPulse();
-                    setPedestalMode(m.id);
-                  }}
-                  className={`font-mono-hud text-[11px] px-2.5 py-1 border transition-colors cursor-pointer whitespace-nowrap ${
-                    isSelected
-                      ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
-                      : 'border-transparent text-[#8A929A] hover:text-[#FFFFFF]'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              );
-            })}
-            <span aria-hidden="true" className="hidden sm:inline text-[#8A929A]/40 px-1">
-              |
-            </span>
-            <button
-              type="button"
-              onClick={() => setInspectedChamber(activeChamber)}
-              className="font-mono-hud text-[11px] px-2.5 py-1 border border-[#00FFFF]/50 text-[#FFFFFF] hover:bg-[#00FFFF]/15 hover:text-[#00FFFF] transition-colors cursor-pointer whitespace-nowrap"
+          {/* Quiet Initial Scroll Prompt (fades out cleanly once user scrolls past 4%) */}
+          {scrollProgress < 0.04 && (
+            <div
+              aria-hidden="true"
+              className="mx-auto flex flex-col items-center gap-2 opacity-75 transition-opacity"
             >
-              CONNECT / CONTACT
-            </button>
-          </div>
-        )}
+              <span className="font-mono-hud text-[10px] tracking-[0.22em] text-[#00FFFF]">
+                SCROLL TO EXPLORE
+              </span>
+              <span className="h-5 w-[1px] bg-gradient-to-b from-[#00FFFF] to-transparent" />
+            </div>
+          )}
 
-        {/* Bottom Row: Sound Toggle (left) + Chamber Steps & Scroll Progress Track (right) */}
-        {!hudHidden && (
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          {/* Bottom Row: Quiet Sound Toggle Left + Minimal Chapter Progress Right */}
+          <div className="flex items-center justify-between gap-4">
             <button
               type="button"
               onClick={handleToggleSound}
-              className="pointer-events-auto inline-flex items-center gap-2 font-mono-hud text-[11px] tracking-wider text-[#8A929A] hover:text-[#00FFFF] transition-colors cursor-pointer"
+              className="pointer-events-auto inline-flex items-center gap-1.5 font-mono-hud text-[10px] tracking-wider text-[#8A929A] hover:text-[#00FFFF] transition-colors cursor-pointer"
+              aria-label="Toggle ambient sound"
             >
               {soundEnabled ? (
                 <Volume2 className="w-3.5 h-3.5 text-[#00FFFF]" />
               ) : (
                 <VolumeX className="w-3.5 h-3.5" />
               )}
-              <span>SOUND: {soundEnabled ? 'ON' : 'OFF'}</span>
+              <span className="hidden sm:inline">{soundEnabled ? 'AUDIO ON' : 'AUDIO OFF'}</span>
             </button>
 
-            <div className="pointer-events-auto flex items-center gap-4">
+            <div className="pointer-events-auto flex items-center gap-3">
               <div className="flex items-center gap-1">
                 {DETAILED_CHAMBERS.map((ch, idx) => {
                   const isActive = idx === activeChamberIdx;
@@ -394,10 +232,10 @@ export default function App() {
                       key={ch.id}
                       type="button"
                       onClick={() => handleJumpChamber(idx)}
-                      className={`font-mono-hud text-[11px] px-2 py-0.5 border transition-colors cursor-pointer ${
+                      className={`font-mono-hud text-[10px] px-1.5 py-0.5 border transition-colors cursor-pointer ${
                         isActive
                           ? 'border-[#00FFFF] text-[#00FFFF] bg-[#00FFFF]/12'
-                          : 'border-[#8A929A]/30 text-[#8A929A] hover:border-[#00FFFF]/60 hover:text-[#FFFFFF]'
+                          : 'border-[#8A929A]/25 text-[#8A929A] hover:border-[#00FFFF]/50 hover:text-[#FFFFFF]'
                       }`}
                     >
                       {ch.index}
@@ -406,37 +244,32 @@ export default function App() {
                 })}
               </div>
 
-              <div className="hidden sm:flex items-center gap-2.5">
-                <span className="font-mono-hud text-[10px] tracking-widest text-[#8A929A]">
-                  SCROLL
-                </span>
-                <div className="relative h-[2px] w-24 bg-[#8A929A]/30">
+              <div className="hidden sm:flex items-center gap-2">
+                <div className="relative h-[2px] w-20 bg-[#8A929A]/25">
                   <div
                     className="absolute top-0 left-0 h-full bg-[#00FFFF]"
                     style={{ width: `${Math.round(scrollProgress * 100)}%` }}
                   />
                 </div>
-                <span className="font-mono-hud text-[11px] text-[#00FFFF] w-9 text-right">
+                <span className="font-mono-hud text-[10px] text-[#00FFFF] w-8 text-right">
                   {String(Math.round(scrollProgress * 100)).padStart(3, '0')}%
                 </span>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Bracketed Holographic Inspector Modal + Auto Scroll-Driven About Me Window */}
+      {/* Compact Scroll-Driven Holographic Resume Cards */}
       <HologramInspectorModal
-        chamber={inspectedChamber}
-        autoRevealAmount={autoAboutAmount}
-        autoEnterT={autoEnterT}
-        autoExitT={autoExitT}
-        onClose={() => {
-          if (inspectedChamber) {
-            setInspectedChamber(null);
-          } else {
-            setDismissedAutoAbout(true);
-          }
+        activeCard={cardState.activeCard}
+        revealAmount={cardState.revealAmount}
+        enterT={cardState.enterT}
+        exitT={cardState.exitT}
+        pedestalMode={pedestalMode}
+        onSelectPedestalMode={(m) => {
+          ambientAudio.playPulse();
+          setPedestalMode(m);
         }}
       />
 

@@ -27,8 +27,6 @@ interface ObsidianCyanSceneProps {
   scrollProgress: number;
   pedestalMode: PedestalMode;
   cameraResetNonce: number;
-  calloutPrimaryRef: React.MutableRefObject<HTMLButtonElement | null>;
-  calloutSecondaryRef: React.MutableRefObject<HTMLButtonElement | null>;
   onTelemetryUpdate?: (chamberIdx: number, warpFlash: number, isOrbiting: boolean) => void;
 }
 
@@ -39,7 +37,6 @@ const _vC = new THREE.Vector3();
 const _vD = new THREE.Vector3();
 const _camGoalPos = new THREE.Vector3();
 const _camGoalTarget = new THREE.Vector3();
-const _projVec = new THREE.Vector3();
 const _dummy = new THREE.Object3D();
 
 function detectSoftwareWebGL(): boolean {
@@ -239,24 +236,52 @@ function sampleDetailedFlight(
     }
   }
 
-  // Segment 3: CH.03 Iris (0.68) -> Plunge through 4-ring Gyroscope Portal (0,-24,-12) -> CH.04 Pedestal (1.00)
+  // Segment 3: CH.03 Iris (0.70) -> Work Showcase Hold -> Plunge through 4-ring Portal -> CH.04 Pedestal (1.00)
   const u = (p - DETAILED_CHAMBERS[2].scrollAt) / (1.0 - DETAILED_CHAMBERS[2].scrollAt);
-  if (u < 0.48) {
-    const t = u / 0.48;
+  if (u < 0.25) {
+    // Gentle drift toward Iris portal while CH.03 Work card is open
+    const t = u / 0.25;
     const eased = t * t * (3 - 2 * t);
-    portalFlyProgress = eased;
-    warpIntensity = THREE.MathUtils.smoothstep(t, 0.22, 1.0) * 0.72;
+    portalFlyProgress = eased * 0.16;
 
     _vA.set(...DETAILED_CHAMBERS[2].camPos);
-    _vB.set(0, -31.5, -11.5);
+    _vB.set(0, -17.2, -7.6);
     outPos.lerpVectors(_vA, _vB, eased);
 
     _vC.set(...DETAILED_CHAMBERS[2].camTarget);
+    _vD.set(0, -24.0, -12.0);
+    outTarget.lerpVectors(_vC, _vD, eased);
+
+    return {
+      chamberIdx: 2,
+      warpIntensity: 0,
+      portalFlyProgress,
+      summitExplodeProgress: 1,
+      neuralRevealProgress: 1,
+      neuralMixProgress: 1,
+      enterNeuronProgress: 1,
+      horizontalWarp: false,
+      nearPlane: 0.1,
+      farPlane: 180,
+      frontWallFade: 1,
+    };
+  } else if (u < 0.65) {
+    // Plunge cleanly through the Iris portal right as CH.03 Work card fades away
+    const t = (u - 0.25) / 0.4;
+    const eased = t * t * (3 - 2 * t);
+    portalFlyProgress = 0.16 + eased * 0.84;
+    warpIntensity = THREE.MathUtils.smoothstep(t, 0.18, 1.0) * 0.72;
+
+    _vA.set(0, -17.2, -7.6);
+    _vB.set(0, -31.5, -11.5);
+    outPos.lerpVectors(_vA, _vB, eased);
+
+    _vC.set(0, -24.0, -12.0);
     _vD.set(0, -48.0, -12.0);
     outTarget.lerpVectors(_vC, _vD, eased);
 
     return {
-      chamberIdx: u < 0.32 ? 2 : 3,
+      chamberIdx: u < 0.45 ? 2 : 3,
       warpIntensity,
       portalFlyProgress,
       summitExplodeProgress: 1,
@@ -269,7 +294,7 @@ function sampleDetailedFlight(
       frontWallFade: 1,
     };
   } else {
-    const t = (u - 0.48) / 0.52;
+    const t = (u - 0.65) / 0.35;
     const eased = 1 - Math.pow(1 - t, 3);
     portalFlyProgress = 1;
     warpIntensity = Math.max(0, 1 - t * 2.4) * 0.72;
@@ -302,8 +327,6 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
   scrollProgress,
   pedestalMode,
   cameraResetNonce,
-  calloutPrimaryRef,
-  calloutSecondaryRef,
   onTelemetryUpdate,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -584,34 +607,6 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       frameId = window.setTimeout(poll, 5);
     }
 
-    const projectToButton = (
-      btn: HTMLButtonElement | null,
-      wx: number,
-      wy: number,
-      wz: number,
-      hide: boolean
-    ) => {
-      if (!btn) return;
-      if (hide) {
-        btn.style.opacity = '0';
-        btn.style.pointerEvents = 'none';
-        return;
-      }
-      _projVec.set(wx, wy, wz).project(camera);
-      if (_projVec.z > 1 || _projVec.z < -1) {
-        btn.style.opacity = '0';
-        btn.style.pointerEvents = 'none';
-        return;
-      }
-      const vw = container.clientWidth || window.innerWidth;
-      const vh = container.clientHeight || window.innerHeight;
-      const sx = ((_projVec.x + 1) / 2) * vw;
-      const sy = ((-_projVec.y + 1) / 2) * vh;
-      btn.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0)`;
-      btn.style.opacity = '1';
-      btn.style.pointerEvents = 'auto';
-    };
-
     const tick = () => {
       if (disposed) return;
 
@@ -747,25 +742,6 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       } else {
         renderer.render(scene, camera);
       }
-
-      // Project primary & secondary spatial leader-line callouts for active chamber
-      const activeCh = DETAILED_CHAMBERS[chamberIdx];
-      const windowActive = scrollRef.current >= 0.25 && scrollRef.current <= 0.50;
-      const hideCallouts = warpIntensity > 0.45 || windowActive;
-      projectToButton(
-        calloutPrimaryRef.current,
-        activeCh.calloutOffsets.primary[0],
-        activeCh.calloutOffsets.primary[1],
-        activeCh.calloutOffsets.primary[2],
-        hideCallouts
-      );
-      projectToButton(
-        calloutSecondaryRef.current,
-        activeCh.calloutOffsets.secondary[0],
-        activeCh.calloutOffsets.secondary[1],
-        activeCh.calloutOffsets.secondary[2],
-        hideCallouts
-      );
 
       if (isSoftwareGl) {
         afterDraw(tick);
