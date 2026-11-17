@@ -12,6 +12,7 @@ import {
   buildIrisChamber,
   buildPedestalChamber,
   buildSummitChamber,
+  buildVolcanicHorizonTerrain,
   createRng,
   PedestalMode,
 } from './detailedChambers';
@@ -64,6 +65,7 @@ function sampleDetailedFlight(
   warpIntensity: number;
   portalFlyProgress: number;
   summitExplodeProgress: number;
+  horizontalWarp: boolean;
 } {
   const p = THREE.MathUtils.clamp(progress, 0, 1);
 
@@ -80,26 +82,37 @@ function sampleDetailedFlight(
 
   let warpIntensity = 0;
   let portalFlyProgress = 0;
-  const summitExplodeProgress = THREE.MathUtils.clamp(p / 0.16, 0, 1);
+  // Summit radial block opening ramps cleanly ahead of the camera crossing z = 0
+  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.16);
 
-  // Segment 1: CH.01 (0.00) -> CH.02 (0.34) with Warp Dive Peak around 0.17..0.27
+  // Segment 1: CH.01 Summit (0.00) -> Straight INSIDE opening monument (0, 1.55, 0) -> CH.02 Drift (0.36)
   if (p <= DETAILED_CHAMBERS[1].scrollAt) {
     const span = DETAILED_CHAMBERS[1].scrollAt;
     const u = p / span;
     const eased = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+
     _vA.set(...DETAILED_CHAMBERS[0].camPos);
     _vB.set(...DETAILED_CHAMBERS[1].camPos);
     outPos.lerpVectors(_vA, _vB, eased);
+    // Gentle dip so eye height passes dead center through the blazing singularity at (0, 1.55, 0)
+    const centerPassDip = Math.sin(THREE.MathUtils.clamp(eased / 0.6, 0, 1) * Math.PI) * 0.52;
+    outPos.y -= centerPassDip;
 
     _vC.set(...DETAILED_CHAMBERS[0].camTarget);
     _vD.set(...DETAILED_CHAMBERS[1].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
-    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.28) / 0.58, 0, 1) * Math.PI);
-    return { chamberIdx, warpIntensity, portalFlyProgress, summitExplodeProgress };
+    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.24) / 0.56, 0, 1) * Math.PI);
+    return {
+      chamberIdx,
+      warpIntensity,
+      portalFlyProgress,
+      summitExplodeProgress,
+      horizontalWarp: true,
+    };
   }
 
-  // Segment 2: CH.02 (0.34) -> CH.03 Iris Canyon (0.62)
+  // Segment 2: CH.02 Drift (0.36) -> Swoop down into CH.03 Iris Canyon Rim (0.68)
   if (p <= DETAILED_CHAMBERS[2].scrollAt) {
     const u =
       (p - DETAILED_CHAMBERS[1].scrollAt) /
@@ -114,50 +127,60 @@ function sampleDetailedFlight(
     _vD.set(...DETAILED_CHAMBERS[2].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
-    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.25) / 0.55, 0, 1) * Math.PI) * 0.65;
-    return { chamberIdx, warpIntensity, portalFlyProgress, summitExplodeProgress: 1 };
-  }
-
-  // Segment 3: CH.03 Iris (0.62) -> Straight through Portal Center -> CH.04 Pedestal (1.00)
-  const u = (p - DETAILED_CHAMBERS[2].scrollAt) / (1.0 - DETAILED_CHAMBERS[2].scrollAt);
-  if (u < 0.5) {
-    // Plunge vertically straight down through the spinning Iris rings at Y = -56
-    const t = u / 0.5;
-    const eased = t * t * (3 - 2 * t);
-    portalFlyProgress = eased;
-    warpIntensity = THREE.MathUtils.smoothstep(t, 0.25, 1.0);
-
-    outPos.set(
-      THREE.MathUtils.lerp(0, 0, eased),
-      THREE.MathUtils.lerp(-50.8, -61.5, eased),
-      THREE.MathUtils.lerp(7.6, 0.2, eased)
-    );
-    outTarget.set(0, -68.0, 0);
+    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.22) / 0.58, 0, 1) * Math.PI) * 0.55;
     return {
-      chamberIdx: u < 0.34 ? 2 : 3,
+      chamberIdx,
       warpIntensity,
       portalFlyProgress,
       summitExplodeProgress: 1,
+      horizontalWarp: true,
+    };
+  }
+
+  // Segment 3: CH.03 Iris (0.68) -> Plunge through 4-ring Gyroscope Portal (0,-24,-68) -> CH.04 Pedestal (1.00)
+  const u = (p - DETAILED_CHAMBERS[2].scrollAt) / (1.0 - DETAILED_CHAMBERS[2].scrollAt);
+  if (u < 0.48) {
+    const t = u / 0.48;
+    const eased = t * t * (3 - 2 * t);
+    portalFlyProgress = eased;
+    warpIntensity = THREE.MathUtils.smoothstep(t, 0.22, 1.0);
+
+    _vA.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -62.0)
+    _vB.set(0, -31.5, -67.5); // Keep tiny +Z offset to prevent gimbal flip
+    outPos.lerpVectors(_vA, _vB, eased);
+
+    _vC.set(...DETAILED_CHAMBERS[2].camTarget); // (0, -24.0, -68.0)
+    _vD.set(0, -48.0, -68.0);
+    outTarget.lerpVectors(_vC, _vD, eased);
+
+    return {
+      chamberIdx: u < 0.32 ? 2 : 3,
+      warpIntensity,
+      portalFlyProgress,
+      summitExplodeProgress: 1,
+      horizontalWarp: false,
     };
   } else {
-    // Emerge smoothly above CH.04 Machined Pedestal Stage at Y = -84
-    const t = (u - 0.5) / 0.5;
+    // Seamless C0 emergence above CH.04 Machined Pedestal Stage at (0, -52, -68)
+    const t = (u - 0.48) / 0.52;
     const eased = 1 - Math.pow(1 - t, 3);
     portalFlyProgress = 1;
     warpIntensity = Math.max(0, 1 - t * 2.4);
 
-    _vA.set(0, -73.5, 4.2);
-    _vB.set(...DETAILED_CHAMBERS[3].camPos);
+    _vA.set(0, -31.5, -67.5);
+    _vB.set(...DETAILED_CHAMBERS[3].camPos); // (0, -49.6, -59.0)
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(0, -83.4, 0);
-    _vD.set(...DETAILED_CHAMBERS[3].camTarget);
+    _vC.set(0, -48.0, -68.0);
+    _vD.set(...DETAILED_CHAMBERS[3].camTarget); // (0, -51.35, -68.0)
     outTarget.lerpVectors(_vC, _vD, eased);
+
     return {
       chamberIdx: 3,
       warpIntensity,
       portalFlyProgress,
       summitExplodeProgress: 1,
+      horizontalWarp: false,
     };
   }
 }
@@ -233,12 +256,12 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     renderer.domElement.style.height = '100vh';
     renderer.domElement.style.cursor = 'grab';
 
-    // Deep Graphite Environment (#121417) + matching Exponential Fog
+    // Deep Graphite Environment (#121417) + calibrated Fog so Martian ridges stay visible
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x121417);
-    scene.fog = new THREE.FogExp2(0x121417, 0.031);
+    scene.fog = new THREE.FogExp2(0x121417, 0.021);
 
-    // Studio Reflection Map for crisp metallic basalt & glass bevels
+    // Studio Reflection Map for crisp metallic basalt & clear quartz bevels
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     const roomEnv = new RoomEnvironment();
     const envTarget = pmremGenerator.fromScene(roomEnv, 0.04);
@@ -246,7 +269,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     roomEnv.dispose();
     pmremGenerator.dispose();
 
-    const camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 140);
+    const camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 180);
     camera.position.set(...DETAILED_CHAMBERS[0].camPos);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -262,17 +285,21 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       orbitScrollAnchorRef.current = scrollRef.current;
     });
 
-    // Pure Cyan + Crisp White Lighting Rig (zero blue or teal hues)
+    // Pure Cyan + Crisp White Lighting Rig (zero blue or green-teal hues)
     const hemiLight = new THREE.HemisphereLight(0x00ffff, 0x121417, 0.85);
     scene.add(hemiLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
-    keyLight.position.set(9, 16, 12);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.15);
+    keyLight.position.set(10, 18, 14);
     scene.add(keyLight);
 
     const cyanRim = new THREE.DirectionalLight(0x00ffff, 1.85);
-    cyanRim.position.set(-10, -6, -10);
+    cyanRim.position.set(-12, -4, -18);
     scene.add(cyanRim);
+
+    const horizonRim = new THREE.DirectionalLight(0xd8ffff, 1.3);
+    horizonRim.position.set(0, 7, -62);
+    scene.add(horizonRim);
 
     // Procedural Textures
     const maxAniso = renderer.capabilities.getMaxAnisotropy();
@@ -281,68 +308,66 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const circuitTex = createPedestalCircuitTexture(maxAniso);
 
     // -------------------------------------------------------------------------
-    // Build All 4 High-Detail Chambers
+    // Build Sculpted Mars/Volcanic Horizon Terrain & All 4 Chambers
     // -------------------------------------------------------------------------
+    const volcanicTerrain = buildVolcanicHorizonTerrain();
+    scene.add(volcanicTerrain.root);
+
     const summitChamber = buildSummitChamber(obsidianTex, glowTex);
     scene.add(summitChamber.root);
 
-    const driftChamber = buildDriftChamber(DETAILED_CHAMBERS[1].chamberY, glowTex);
+    const driftChamber = buildDriftChamber(-36, glowTex);
     scene.add(driftChamber.root);
 
-    const irisChamber = buildIrisChamber(DETAILED_CHAMBERS[2].chamberY, obsidianTex, glowTex);
+    const irisChamber = buildIrisChamber(-24, -68, obsidianTex, glowTex);
     scene.add(irisChamber.root);
 
-    const pedestalChamber = buildPedestalChamber(
-      DETAILED_CHAMBERS[3].chamberY,
-      circuitTex,
-      glowTex
-    );
+    const pedestalChamber = buildPedestalChamber(-52, -68, circuitTex, glowTex);
     scene.add(pedestalChamber.root);
 
     // -------------------------------------------------------------------------
-    // Hyperspace Warp Streak Tunnel & Drifting Snow/Ash Motes
+    // Hyperspace Warp Streak Tunnel & Drifting Atmospheric Motes
     // -------------------------------------------------------------------------
     const rng = createRng(8088);
     const streakCount = 130;
-    const streakGeo = new THREE.CylinderGeometry(0.018, 0.018, 1.8, 6);
+    const streakGeo = new THREE.CylinderGeometry(0.016, 0.016, 1.8, 6);
     const streakMat = new THREE.MeshBasicMaterial({
       color: 0x00ffff,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.0,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     const warpStreaks = new THREE.InstancedMesh(streakGeo, streakMat, streakCount);
     warpStreaks.frustumCulled = false;
+    warpStreaks.visible = false;
 
     const streakData = Array.from({ length: streakCount }, () => {
       const a = rng() * Math.PI * 2;
-      const r = 1.9 + rng() * 5.8;
+      const r = 1.6 + rng() * 5.6;
       return {
-        x: Math.cos(a) * r,
-        z: Math.sin(a) * r,
-        yBase: -5 - rng() * 75,
-        speed: 12 + rng() * 16,
+        radialX: Math.cos(a) * r,
+        radialY: Math.sin(a) * r,
+        offset: rng() * 24,
+        speed: 14 + rng() * 18,
       };
     });
     scene.add(warpStreaks);
 
-    const moteCount = 340;
+    const moteCount = 480;
     const moteGeo = new THREE.BufferGeometry();
     const motePos = new Float32Array(moteCount * 3);
     for (let i = 0; i < moteCount; i++) {
-      const a = rng() * Math.PI * 2;
-      const r = 2.0 + rng() * 14.0;
-      motePos[i * 3] = Math.cos(a) * r;
-      motePos[i * 3 + 1] = 10 - rng() * 106;
-      motePos[i * 3 + 2] = Math.sin(a) * r;
+      motePos[i * 3] = (rng() - 0.5) * 42;
+      motePos[i * 3 + 1] = 14 - rng() * 74; // Covers y: 14 down to -60
+      motePos[i * 3 + 2] = 18 - rng() * 102; // Covers z: 18 down to -84
     }
     moteGeo.setAttribute('position', new THREE.BufferAttribute(motePos, 3));
     const moteMat = new THREE.PointsMaterial({
       color: 0xffffff,
-      size: 0.06,
+      size: 0.065,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.42,
     });
     const motes = new THREE.Points(moteGeo, moteMat);
     scene.add(motes);
@@ -354,9 +379,9 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       composer.addPass(new RenderPass(scene, camera));
       const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(width, height),
-        0.42, // subtle crisp strength
-        0.35, // tight radius
-        0.72 // threshold so only bright pure cyan cores & edges bloom
+        0.42,
+        0.35,
+        0.72
       );
       composer.addPass(bloomPass);
       composer.addPass(new OutputPass());
@@ -481,8 +506,13 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       pointerSmooth.x = THREE.MathUtils.lerp(pointerSmooth.x, pointerTarget.x, pAlpha);
       pointerSmooth.y = THREE.MathUtils.lerp(pointerSmooth.y, pointerTarget.y, pAlpha);
 
-      const { chamberIdx, warpIntensity, portalFlyProgress, summitExplodeProgress } =
-        sampleDetailedFlight(scrollRef.current, _camGoalPos, _camGoalTarget);
+      const {
+        chamberIdx,
+        warpIntensity,
+        portalFlyProgress,
+        summitExplodeProgress,
+        horizontalWarp,
+      } = sampleDetailedFlight(scrollRef.current, _camGoalPos, _camGoalTarget);
 
       if (
         chamberIdx !== lastChamberIdx ||
@@ -496,8 +526,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       }
 
       if (!userOrbitingRef.current) {
-        _camGoalPos.x += pointerSmooth.x * 0.78;
-        _camGoalPos.y += pointerSmooth.y * 0.44;
+        _camGoalPos.x += pointerSmooth.x * 0.72;
+        _camGoalPos.y += pointerSmooth.y * 0.42;
 
         const damp = 4.6;
         camera.position.x = THREE.MathUtils.damp(camera.position.x, _camGoalPos.x, damp, delta);
@@ -511,17 +541,19 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
 
       controls.update();
 
-      // Update Chambers cleanly within active range
-      if (camera.position.y > -22) {
+      // Update Chambers cleanly within active spatial range
+      volcanicTerrain.root.visible = camera.position.y > -22;
+
+      if (camera.position.z > -32 && camera.position.y > -16) {
         summitChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y, summitExplodeProgress);
       }
-      if (camera.position.y < -10 && camera.position.y > -46) {
+      if (camera.position.z < -4 && camera.position.z > -66 && camera.position.y > -20) {
         driftChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y);
       }
-      if (camera.position.y < -36 && camera.position.y > -78) {
+      if (camera.position.y < -2 && camera.position.y > -46) {
         irisChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y, portalFlyProgress);
       }
-      if (camera.position.y < -64) {
+      if (camera.position.y < -24) {
         pedestalChamber.update(
           elapsed,
           delta,
@@ -531,20 +563,37 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         );
       }
 
-      // Animate Hyperspace Warp Streaks
-      streakMat.opacity = 0.08 + warpIntensity * 0.85;
-      const stretch = 0.35 + warpIntensity * 3.8;
-      for (let i = 0; i < streakCount; i++) {
-        const s = streakData[i];
-        const yOff = ((elapsed * s.speed) % 24) - 12;
-        _dummy.position.set(s.x, camera.position.y + yOff - 4, s.z);
-        _dummy.scale.set(1, stretch, 1);
-        _dummy.updateMatrix();
-        warpStreaks.setMatrixAt(i, _dummy.matrix);
+      // Animate Hyperspace Warp Streaks (Z-tunnel for CH.01->02, Y-shaft for CH.03->04)
+      warpStreaks.visible = warpIntensity > 0.02;
+      if (warpStreaks.visible) {
+        streakMat.opacity = warpIntensity * 0.88;
+        const stretch = 0.4 + warpIntensity * 3.8;
+        for (let i = 0; i < streakCount; i++) {
+          const s = streakData[i];
+          const travel = ((elapsed * s.speed + s.offset) % 24) - 12;
+          if (horizontalWarp) {
+            _dummy.position.set(
+              camera.position.x + s.radialX,
+              camera.position.y + s.radialY,
+              camera.position.z + travel - 8
+            );
+            _dummy.rotation.set(Math.PI / 2, 0, 0);
+          } else {
+            _dummy.position.set(
+              camera.position.x + s.radialX,
+              camera.position.y + travel - 4,
+              camera.position.z + s.radialY
+            );
+            _dummy.rotation.set(0, 0, 0);
+          }
+          _dummy.scale.set(1, stretch, 1);
+          _dummy.updateMatrix();
+          warpStreaks.setMatrixAt(i, _dummy.matrix);
+        }
+        warpStreaks.instanceMatrix.needsUpdate = true;
       }
-      warpStreaks.instanceMatrix.needsUpdate = true;
 
-      motes.rotation.y = elapsed * 0.018;
+      motes.rotation.y = Math.sin(elapsed * 0.06) * 0.025;
 
       if (composer) {
         composer.render();
@@ -597,6 +646,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       glowTex.dispose();
       obsidianTex.dispose();
       circuitTex.dispose();
+      volcanicTerrain.dispose();
       summitChamber.dispose();
       driftChamber.dispose();
       irisChamber.dispose();

@@ -13,7 +13,206 @@ export function createRng(seed: number) {
 }
 
 /**
- * CH.01 // SUMMIT: Jagged Graphite Mountains + Columnar Basalt Plinth + 27 Exploding Obsidian Lattice Blocks + Inner Pure Cyan Neural Core
+ * Helper: Build a glowing Pure Cyan Ball-and-Stick 3D Network inside a given radius
+ */
+function buildInnerBallStickNetwork(
+  variant: 'lattice' | 'cluster' | 'tetra' | 'octa' | 'prism',
+  scale: number,
+  disposables: { dispose: () => void }[]
+): THREE.Group {
+  const group = new THREE.Group();
+  const points: THREE.Vector3[] = [];
+  const edges: [number, number][] = [];
+
+  if (variant === 'lattice') {
+    // 3D Hypercube / Cubic Neural Lattice (for center hero crystal)
+    const s = 0.42 * scale;
+    const inner = 0.2 * scale;
+    for (let x = -1; x <= 1; x += 2) {
+      for (let y = -1; y <= 1; y += 2) {
+        for (let z = -1; z <= 1; z += 2) {
+          points.push(new THREE.Vector3(x * s, y * s, z * s));
+        }
+      }
+    }
+    for (let x = -1; x <= 1; x += 2) {
+      for (let y = -1; y <= 1; y += 2) {
+        for (let z = -1; z <= 1; z += 2) {
+          points.push(new THREE.Vector3(x * inner, y * inner, z * inner));
+        }
+      }
+    }
+    points.push(new THREE.Vector3(0, 0, 0));
+
+    // Outer cube + inner cube + cross struts to center
+    for (let i = 0; i < 8; i++) {
+      for (let j = i + 1; j < 8; j++) {
+        const diff = (i ^ j);
+        if (diff === 1 || diff === 2 || diff === 4) {
+          edges.push([i, j]);
+          edges.push([i + 8, j + 8]);
+        }
+      }
+      edges.push([i, i + 8]);
+      edges.push([i + 8, 16]);
+    }
+  } else if (variant === 'cluster') {
+    // 13-node spherical molecular neural cluster
+    points.push(new THREE.Vector3(0, 0, 0));
+    const ico = new THREE.IcosahedronGeometry(0.46 * scale, 0);
+    const pos = ico.attributes.position;
+    const unique: THREE.Vector3[] = [];
+    for (let i = 0; i < pos.count; i++) {
+      const v = new THREE.Vector3().fromBufferAttribute(pos, i);
+      if (!unique.some((u) => u.distanceToSquared(v) < 0.001)) unique.push(v);
+    }
+    ico.dispose();
+    unique.forEach((v) => points.push(v));
+    for (let i = 1; i < points.length; i++) {
+      edges.push([0, i]);
+      for (let j = i + 1; j < points.length; j++) {
+        if (points[i].distanceTo(points[j]) < 0.56 * scale) {
+          edges.push([i, j]);
+        }
+      }
+    }
+  } else {
+    // Octahedral / Tetrahedral blockchain node graph
+    const r = 0.45 * scale;
+    points.push(
+      new THREE.Vector3(0, r * 1.1, 0),
+      new THREE.Vector3(0, -r * 1.1, 0),
+      new THREE.Vector3(r, 0, 0),
+      new THREE.Vector3(-r, 0, 0),
+      new THREE.Vector3(0, 0, r),
+      new THREE.Vector3(0, 0, -r),
+      new THREE.Vector3(0, 0, 0)
+    );
+    for (let i = 0; i < 6; i++) {
+      edges.push([i, 6]);
+      for (let j = i + 1; j < 6; j++) {
+        if (points[i].distanceTo(points[j]) < r * 1.65) {
+          edges.push([i, j]);
+        }
+      }
+    }
+  }
+
+  // Ball nodes (InstancedMesh)
+  const sphereGeo = new THREE.SphereGeometry(0.042 * scale, 10, 10);
+  const sphereMat = new THREE.MeshBasicMaterial({ color: 0xd8ffff });
+  const spheres = new THREE.InstancedMesh(sphereGeo, sphereMat, points.length);
+  const dummy = new THREE.Object3D();
+  points.forEach((p, idx) => {
+    dummy.position.copy(p);
+    dummy.scale.setScalar(idx === points.length - 1 ? 1.4 : 1.0);
+    dummy.updateMatrix();
+    spheres.setMatrixAt(idx, dummy.matrix);
+  });
+  spheres.instanceMatrix.needsUpdate = true;
+  group.add(spheres);
+
+  // Connecting edges (LineSegments in pure #00FFFF)
+  const linePos = new Float32Array(edges.length * 6);
+  edges.forEach(([a, b], idx) => {
+    const pA = points[a];
+    const pB = points[b];
+    linePos[idx * 6] = pA.x;
+    linePos[idx * 6 + 1] = pA.y;
+    linePos[idx * 6 + 2] = pA.z;
+    linePos[idx * 6 + 3] = pB.x;
+    linePos[idx * 6 + 4] = pB.y;
+    linePos[idx * 6 + 5] = pB.z;
+  });
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+  const lineMat = new THREE.LineBasicMaterial({
+    color: 0x00ffff,
+    transparent: true,
+    opacity: 0.92,
+    blending: THREE.AdditiveBlending,
+  });
+  const lines = new THREE.LineSegments(lineGeo, lineMat);
+  group.add(lines);
+
+  disposables.push(sphereGeo, sphereMat, lineGeo, lineMat);
+  return group;
+}
+
+/**
+ * Shared Sculpted Mars/Volcanic Dark Mountain Landscape spanning CH.01 and CH.02
+ */
+export function buildVolcanicHorizonTerrain(): {
+  root: THREE.Group;
+  dispose: () => void;
+} {
+  const root = new THREE.Group();
+  root.position.set(0, -2.5, -24);
+
+  const terrainGeo = new THREE.PlaneGeometry(115, 115, 96, 96);
+  terrainGeo.rotateX(-Math.PI / 2);
+  const pos = terrainGeo.attributes.position;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i); // local Z relative to -24
+
+    // World Z = z - 24
+    const worldZ = z - 24;
+    // Keep basins recessed under CH.01 (0,0) and CH.02 (0,-36), and carve dramatic Martian mountain ranges around flanks & horizon
+    const distSummit = Math.hypot(x * 0.85, worldZ);
+    const distDrift = Math.hypot(x * 0.85, worldZ + 36);
+    const basinMask =
+      THREE.MathUtils.smoothstep(distSummit, 3.8, 16.0) *
+      THREE.MathUtils.smoothstep(distDrift, 4.5, 15.0);
+
+    const mountains =
+      Math.abs(Math.sin(x * 0.16 + worldZ * 0.09)) * 4.8 +
+      Math.abs(Math.cos(x * 0.31 - worldZ * 0.24)) * 2.2 +
+      Math.sin(x * 0.72 + worldZ * 0.61) * 0.75 +
+      Math.cos(x * 1.3 - worldZ * 1.1) * 0.28;
+
+    // Cratered ridges rising higher along flanks
+    const flankLift = Math.pow(Math.min(1, Math.abs(x) / 38), 1.4) * 5.2;
+    pos.setY(i, (mountains + flankLift) * basinMask - 0.5);
+  }
+  terrainGeo.computeVertexNormals();
+
+  const terrainMat = new THREE.MeshStandardMaterial({
+    color: 0x181b20,
+    roughness: 0.88,
+    metalness: 0.18,
+    flatShading: true,
+  });
+  const mesh = new THREE.Mesh(terrainGeo, terrainMat);
+  root.add(mesh);
+
+  // Subtle rim wireframe contours along mountain ridges
+  const wireGeo = new THREE.WireframeGeometry(terrainGeo);
+  const wireMat = new THREE.LineBasicMaterial({
+    color: 0x00ffff,
+    transparent: true,
+    opacity: 0.06,
+    depthWrite: false,
+  });
+  const wire = new THREE.LineSegments(wireGeo, wireMat);
+  wire.position.y = 0.03;
+  root.add(wire);
+
+  return {
+    root,
+    dispose: () => {
+      terrainGeo.dispose();
+      terrainMat.dispose();
+      wireGeo.dispose();
+      wireMat.dispose();
+    },
+  };
+}
+
+/**
+ * CH.01 // SUMMIT: Stepped Hexagonal Basalt Plinth + Wireframe Cages filled with Fractured Obsidian & Clear Quartz Stones
+ * Opens radially during scroll so camera flies DIRECTLY INSIDE through 24 curved glowing Pure Cyan Neural Tendrils!
  */
 export function buildSummitChamber(
   obsidianTex: THREE.CanvasTexture,
@@ -22,446 +221,438 @@ export function buildSummitChamber(
   const root = new THREE.Group();
   root.position.set(0, 0, 0);
 
-  // 1. Jagged Dark Graphite Mountain Ridge Terrain
-  const terrainGeo = new THREE.PlaneGeometry(54, 42, 64, 52);
-  terrainGeo.rotateX(-Math.PI / 2);
-  const tPos = terrainGeo.attributes.position;
-  for (let i = 0; i < tPos.count; i++) {
-    const x = tPos.getX(i);
-    const z = tPos.getZ(i);
-    const d = Math.hypot(x * 0.78, z);
-    const ridge =
-      Math.abs(Math.sin(x * 0.28 + z * 0.14)) * 1.9 +
-      Math.sin(x * 0.65 - z * 0.42) * 0.65 +
-      Math.cos(z * 0.85) * 0.35;
-    const basin = THREE.MathUtils.smoothstep(d, 3.2, 13.5);
-    tPos.setY(i, ridge * basin - 2.65);
-  }
-  terrainGeo.computeVertexNormals();
-
-  const terrainMat = new THREE.MeshStandardMaterial({
-    color: 0x16191e,
-    roughness: 0.9,
-    metalness: 0.18,
-    flatShading: true,
-  });
-  const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
-  root.add(terrainMesh);
-
-  const terrainWireGeo = new THREE.WireframeGeometry(terrainGeo);
-  const terrainWireMat = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.1,
-    depthWrite: false,
-  });
-  const terrainWire = new THREE.LineSegments(terrainWireGeo, terrainWireMat);
-  terrainWire.position.y = 0.02;
-  root.add(terrainWire);
-
-  // 2. Columnar Hexagonal Basalt Plinth under the Obsidian Lattice
+  const disposables: { dispose: () => void }[] = [];
   const rng = createRng(1001);
-  const basaltCount = 38;
-  const hexGeo = new THREE.CylinderGeometry(0.46, 0.5, 3.2, 6);
+
+  // 1. Stepped Columnar Hexagonal Basalt Plinth
+  const basaltCount = 46;
+  const hexGeo = new THREE.CylinderGeometry(0.45, 0.49, 3.6, 6);
   const hexMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1e25,
+    color: 0x16191e,
     map: obsidianTex,
-    roughness: 0.55,
-    metalness: 0.48,
+    roughness: 0.62,
+    metalness: 0.42,
     flatShading: true,
   });
   const basaltCols = new THREE.InstancedMesh(hexGeo, hexMat, basaltCount);
   const dummy = new THREE.Object3D();
 
   for (let i = 0; i < basaltCount; i++) {
-    const ring = i < 12 ? 0 : i < 26 ? 1 : 2;
-    const angle = (i / (ring === 0 ? 12 : ring === 1 ? 14 : 12)) * Math.PI * 2 + ring * 0.3;
-    const rad = ring === 0 ? 0.65 + rng() * 0.6 : ring === 1 ? 1.55 + rng() * 0.55 : 2.35 + rng() * 0.65;
-    const hScale = ring === 0 ? 1.15 : ring === 1 ? 0.85 + rng() * 0.3 : 0.45 + rng() * 0.35;
-    dummy.position.set(
-      Math.cos(angle) * rad,
-      -2.55 + hScale * 1.15,
-      Math.sin(angle) * rad
-    );
+    const ring = i < 14 ? 0 : i < 30 ? 1 : 2;
+    const segCount = ring === 0 ? 14 : ring === 1 ? 16 : 16;
+    const angle = (i / segCount) * Math.PI * 2 + ring * 0.25;
+    const rad =
+      ring === 0 ? 0.65 + rng() * 0.8 : ring === 1 ? 1.85 + rng() * 0.7 : 2.85 + rng() * 0.85;
+    const hScale = ring === 0 ? 1.15 : ring === 1 ? 0.82 + rng() * 0.3 : 0.45 + rng() * 0.32;
+    dummy.position.set(Math.cos(angle) * rad, -2.5 + hScale * 1.1, Math.sin(angle) * rad);
     dummy.rotation.set(0, rng() * Math.PI, 0);
-    dummy.scale.set(0.85 + rng() * 0.35, hScale, 0.85 + rng() * 0.35);
+    dummy.scale.set(0.88 + rng() * 0.35, hScale, 0.88 + rng() * 0.35);
     dummy.updateMatrix();
     basaltCols.setMatrixAt(i, dummy.matrix);
   }
   basaltCols.instanceMatrix.needsUpdate = true;
   root.add(basaltCols);
+  disposables.push(hexGeo, hexMat);
 
-  // 3. 27 Exploding Architectural Obsidian Blocks + Pure Cyan Wireframe Lattice Cages
-  const latticeGroup = new THREE.Group();
-  latticeGroup.position.set(0, 1.35, 0);
-  root.add(latticeGroup);
+  // 2. Stepped Pyramid of Wireframe Cubes with Fractured Rock & Clear Quartz Stones INSIDE
+  const monumentGroup = new THREE.Group();
+  monumentGroup.position.set(0, 1.55, 0);
+  root.add(monumentGroup);
 
-  const blockGeo = new THREE.BoxGeometry(0.68, 0.68, 0.68);
-  const blockEdgeGeo = new THREE.EdgesGeometry(blockGeo);
-  const blockMat = new THREE.MeshStandardMaterial({
-    color: 0x181c22,
-    map: obsidianTex,
-    roughness: 0.24,
-    metalness: 0.86,
-  });
-  const blockEdgeMat = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
+  const wireBoxGeo = new THREE.BoxGeometry(0.92, 0.92, 0.92);
+  const wireEdgeGeo = new THREE.EdgesGeometry(wireBoxGeo);
+  const wireEdgeMat = new THREE.LineBasicMaterial({
+    color: 0xd8ffff,
     transparent: true,
-    opacity: 0.72,
+    opacity: 0.62,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
 
-  interface BlockItem {
+  // Two fractured stone materials: Dark Jagged Obsidian + Frosted Clear Quartz Stone
+  const darkRockMat = new THREE.MeshStandardMaterial({
+    color: 0x161a20,
+    map: obsidianTex,
+    roughness: 0.36,
+    metalness: 0.68,
+    flatShading: true,
+  });
+  const clearStoneMat = new THREE.MeshPhysicalMaterial({
+    color: 0x99b8c2,
+    roughness: 0.16,
+    metalness: 0.22,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
+    transparent: true,
+    opacity: 0.56,
+    flatShading: true,
+  });
+
+  // Create 3 distinct fractured crystal/stone shard cluster geometries
+  const shardGeos: THREE.BufferGeometry[] = [];
+  for (let v = 0; v < 3; v++) {
+    const g = new THREE.DodecahedronGeometry(0.36, 0);
+    const p = g.attributes.position;
+    for (let k = 0; k < p.count; k++) {
+      const px = p.getX(k);
+      const py = p.getY(k);
+      const pz = p.getZ(k);
+      const jitter = 0.72 + Math.sin(px * 7.1 + v * 2.1) * 0.28 + Math.cos(pz * 6.3) * 0.2;
+      p.setXYZ(k, px * jitter, py * jitter * 1.08, pz * jitter);
+    }
+    g.computeVertexNormals();
+    shardGeos.push(g);
+    disposables.push(g);
+  }
+  disposables.push(wireBoxGeo, wireEdgeGeo, wireEdgeMat, darkRockMat, clearStoneMat);
+
+  interface StoneCell {
     group: THREE.Group;
     basePos: THREE.Vector3;
-    explodeDir: THREE.Vector3;
-    rotAxis: THREE.Vector3;
-    explodeAmount: number;
+    openDir: THREE.Vector3;
+    rotSeed: THREE.Vector3;
   }
 
-  const blocks: BlockItem[] = [];
+  const cells: StoneCell[] = [];
+  const slots: [number, number, number][] = [];
+
+  // 3x3x3 cube grid + top capstone block (matches Screenshot 1 silhouette!)
   for (let ix = -1; ix <= 1; ix++) {
     for (let iy = -1; iy <= 1; iy++) {
       for (let iz = -1; iz <= 1; iz++) {
-        // Leave dead-center open for the blazing cyan singularity core
-        if (ix === 0 && iy === 0 && iz === 0) continue;
-
-        const g = new THREE.Group();
-        const solid = new THREE.Mesh(blockGeo, blockMat);
-        const edges = new THREE.LineSegments(blockEdgeGeo, blockEdgeMat);
-        edges.scale.setScalar(1.015);
-        g.add(solid);
-        g.add(edges);
-
-        const basePos = new THREE.Vector3(ix * 0.84, iy * 0.84, iz * 0.84);
-        g.position.copy(basePos);
-        const explodeDir = basePos
-          .clone()
-          .add(new THREE.Vector3((rng() - 0.5) * 0.3, (rng() - 0.5) * 0.3, (rng() - 0.5) * 0.3))
-          .normalize();
-
-        latticeGroup.add(g);
-        blocks.push({
-          group: g,
-          basePos,
-          explodeDir,
-          rotAxis: new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize(),
-          explodeAmount: 0.75 + rng() * 1.15,
-        });
+        if (ix === 0 && iy === 0 && iz === 0) continue; // Hollow heart for blazing cyan singularity
+        slots.push([ix, iy, iz]);
       }
     }
   }
+  slots.push([0, 2, 0]); // Crown capstone block
 
-  // Outer stepped architectural cyan wireframe scaffolds
-  const cageGeo = new THREE.BoxGeometry(2.65, 2.65, 2.65);
-  const cageEdgeGeo = new THREE.EdgesGeometry(cageGeo);
-  const cageMat = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.32,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
+  slots.forEach(([ix, iy, iz], idx) => {
+    const cellGroup = new THREE.Group();
+    const basePos = new THREE.Vector3(ix * 1.02, iy * 1.02, iz * 1.02);
+    cellGroup.position.copy(basePos);
+
+    // Crisp outer wireframe cubic cage
+    const cage = new THREE.LineSegments(wireEdgeGeo, wireEdgeMat);
+    cellGroup.add(cage);
+
+    // Inner fractured stone cluster (2-3 interlocking rock shards inside the cage)
+    const isClear = idx === slots.length - 1 || (ix + iy + iz) % 3 === 0;
+    const rockMat = isClear ? clearStoneMat : darkRockMat;
+    const shardCount = 3;
+    for (let s = 0; s < shardCount; s++) {
+      const shard = new THREE.Mesh(shardGeos[(idx + s) % shardGeos.length], rockMat);
+      shard.position.set(
+        (rng() - 0.5) * 0.24,
+        (rng() - 0.5) * 0.24,
+        (rng() - 0.5) * 0.24
+      );
+      shard.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
+      shard.scale.setScalar(0.65 + rng() * 0.35);
+      cellGroup.add(shard);
+    }
+
+    // Radial parting direction that opens a wide central tunnel in XY as Z approaches
+    const radialXY = new THREE.Vector3(ix === 0 ? (rng() > 0.5 ? 0.55 : -0.55) : ix, iy === 0 ? (rng() > 0.5 ? 0.45 : -0.45) : iy, iz * 0.35).normalize();
+
+    monumentGroup.add(cellGroup);
+    cells.push({
+      group: cellGroup,
+      basePos,
+      openDir: radialXY,
+      rotSeed: new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5),
+    });
   });
-  const outerCage = new THREE.LineSegments(cageEdgeGeo, cageMat);
-  latticeGroup.add(outerCage);
 
-  // 4. Inner Blazing Pure Cyan Neural Core + Synaptic Filaments
-  const coreSpriteMat = new THREE.SpriteMaterial({
+  // 3. Blazing Pure Cyan Singularity + 28 Sinuous Curved Neural Tendrils (Screenshots 4 & 5!)
+  const singularitySpriteMat = new THREE.SpriteMaterial({
     map: glowTex,
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.95,
+    opacity: 0.98,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  const coreSprite = new THREE.Sprite(coreSpriteMat);
-  coreSprite.scale.set(2.4, 2.4, 1);
-  latticeGroup.add(coreSprite);
+  const singularitySprite = new THREE.Sprite(singularitySpriteMat);
+  singularitySprite.scale.set(2.4, 2.4, 1);
+  monumentGroup.add(singularitySprite);
+  disposables.push(singularitySpriteMat);
 
-  const innerNodeCount = 140;
-  const innerPos = new Float32Array(innerNodeCount * 3);
-  const innerBase: THREE.Vector3[] = [];
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  for (let i = 0; i < innerNodeCount; i++) {
-    const t = (i + 0.5) / innerNodeCount;
-    const yU = 1 - 2 * t;
-    const rXZ = Math.sqrt(Math.max(0, 1 - yU * yU));
-    const phi = i * goldenAngle;
-    const rad = 0.55 + rng() * 1.15;
-    const v = new THREE.Vector3(Math.cos(phi) * rXZ * rad, yU * rad * 0.9, Math.sin(phi) * rXZ * rad);
-    innerBase.push(v);
-    innerPos[i * 3] = v.x;
-    innerPos[i * 3 + 1] = v.y;
-    innerPos[i * 3 + 2] = v.z;
+  const tendrilMat = new THREE.MeshBasicMaterial({
+    color: 0xd8ffff,
+    transparent: true,
+    opacity: 0.88,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  disposables.push(tendrilMat);
+
+  const tendrilGroup = new THREE.Group();
+  monumentGroup.add(tendrilGroup);
+  const tendrilCount = 26;
+
+  for (let t = 0; t < tendrilCount; t++) {
+    const phi = (t / tendrilCount) * Math.PI * 2;
+    const elevation = (rng() - 0.5) * 2.2;
+    const dir = new THREE.Vector3(
+      Math.cos(phi) * 1.4,
+      elevation,
+      Math.sin(phi) * 1.4
+    ).normalize();
+
+    const p0 = new THREE.Vector3(0, 0, 0);
+    const p1 = dir
+      .clone()
+      .multiplyScalar(1.3)
+      .add(new THREE.Vector3((rng() - 0.5) * 0.6, (rng() - 0.5) * 0.6, (rng() - 0.5) * 0.6));
+    const p2 = dir
+      .clone()
+      .multiplyScalar(2.7)
+      .add(new THREE.Vector3((rng() - 0.5) * 0.9, (rng() - 0.5) * 0.9, (rng() - 0.5) * 0.9));
+    const p3 = dir.clone().multiplyScalar(4.4);
+
+    const curve = new THREE.CatmullRomCurve3([p0, p1, p2, p3]);
+    const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.018, 5, false);
+    disposables.push(tubeGeo);
+    tendrilGroup.add(new THREE.Mesh(tubeGeo, tendrilMat));
   }
 
-  const innerPtsGeo = new THREE.BufferGeometry();
-  const innerPosAttr = new THREE.BufferAttribute(innerPos, 3);
-  innerPosAttr.setUsage(THREE.DynamicDrawUsage);
-  innerPtsGeo.setAttribute('position', innerPosAttr);
-  const innerPtsMat = new THREE.PointsMaterial({
-    size: 0.24,
-    map: glowTex,
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.96,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
+  // Tiny floating Pure Cyan energy nodes around the singularity tendrils
+  const orbGeo = new THREE.SphereGeometry(0.052, 8, 8);
+  const orbMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+  const orbCount = 96;
+  const orbs = new THREE.InstancedMesh(orbGeo, orbMat, orbCount);
+  const orbData = Array.from({ length: orbCount }, () => {
+    const a = rng() * Math.PI * 2;
+    const el = (rng() - 0.5) * Math.PI;
+    const r = 0.45 + rng() * 2.8;
+    return {
+      pos: new THREE.Vector3(
+        Math.cos(a) * Math.cos(el) * r,
+        Math.sin(el) * r,
+        Math.sin(a) * Math.cos(el) * r
+      ),
+      scale: 0.55 + rng() * 0.9,
+      phase: rng() * Math.PI * 2,
+    };
   });
-  const innerPoints = new THREE.Points(innerPtsGeo, innerPtsMat);
-  latticeGroup.add(innerPoints);
+  monumentGroup.add(orbs);
+  disposables.push(orbGeo, orbMat);
 
-  const MAX_SYNAPSES = 900;
-  const synPositions = new Float32Array(MAX_SYNAPSES * 6);
-  const synGeo = new THREE.BufferGeometry();
-  const synPosAttr = new THREE.BufferAttribute(synPositions, 3);
-  synPosAttr.setUsage(THREE.DynamicDrawUsage);
-  synGeo.setAttribute('position', synPosAttr);
-  synGeo.setDrawRange(0, 0);
-  const synMat = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.55,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const synapses = new THREE.LineSegments(synGeo, synMat);
-  latticeGroup.add(synapses);
-
-  // Orbiting subtle reconnaissance node drone (top-left framing element from video)
-  const droneGroup = new THREE.Group();
-  const droneGeo = new THREE.OctahedronGeometry(0.18, 0);
-  const droneEdgeGeo = new THREE.EdgesGeometry(droneGeo);
-  const droneSolid = new THREE.Mesh(droneGeo, blockMat);
-  const droneEdge = new THREE.LineSegments(droneEdgeGeo, blockEdgeMat);
-  droneGroup.add(droneSolid, droneEdge);
-  latticeGroup.add(droneGroup);
+  // Small orbiting scanner shard on upper-left (seen in Screenshot 1-3)
+  const scannerGroup = new THREE.Group();
+  const scanMesh = new THREE.Mesh(shardGeos[0], darkRockMat);
+  scanMesh.scale.setScalar(0.55);
+  scannerGroup.add(scanMesh);
+  monumentGroup.add(scannerGroup);
 
   const _vTmp = new THREE.Vector3();
 
   return {
     root,
-    update: (elapsed: number, pointerX: number, pointerY: number, scrollFactor: number) => {
-      // Explosion intensity reacts to both early scroll dive AND pointer hover energy
-      const cursorEnergy = Math.min(1, Math.hypot(pointerX, pointerY) * 0.55);
-      const explode = THREE.MathUtils.clamp(0.18 + cursorEnergy * 0.45 + scrollFactor * 3.8, 0.12, 1.55);
+    update: (elapsed: number, pointerX: number, pointerY: number, openFactor: number) => {
+      const cursorBoost = Math.min(0.45, Math.hypot(pointerX, pointerY) * 0.35);
+      const spread = THREE.MathUtils.clamp(0.06 + cursorBoost * 0.55 + openFactor * 3.9, 0.06, 4.2);
 
-      latticeGroup.rotation.y = elapsed * 0.14 + pointerX * 0.32;
-      latticeGroup.rotation.x = pointerY * 0.18;
+      // Keep monument subtle rotation in idle, straighten cleanly as camera flies inside
+      const rotScale = Math.max(0, 1 - openFactor * 1.4);
+      monumentGroup.rotation.y = (elapsed * 0.08 + pointerX * 0.25) * rotScale;
+      monumentGroup.rotation.x = pointerY * 0.14 * rotScale;
 
-      for (let i = 0; i < blocks.length; i++) {
-        const b = blocks[i];
-        const floatY = Math.sin(elapsed * 1.2 + i * 0.4) * 0.04;
-        _vTmp.copy(b.basePos).addScaledVector(b.explodeDir, b.explodeAmount * explode);
-        _vTmp.y += floatY;
-        b.group.position.copy(_vTmp);
-        b.group.rotation.set(
-          b.rotAxis.x * explode * 0.65,
-          b.rotAxis.y * explode * 0.65,
-          b.rotAxis.z * explode * 0.45
+      for (let i = 0; i < cells.length; i++) {
+        const c = cells[i];
+        _vTmp.copy(c.basePos).addScaledVector(c.openDir, spread);
+        _vTmp.y += Math.sin(elapsed * 1.1 + i * 0.35) * 0.03;
+        c.group.position.copy(_vTmp);
+        c.group.rotation.set(
+          c.rotSeed.x * spread * 0.28,
+          c.rotSeed.y * spread * 0.28,
+          c.rotSeed.z * spread * 0.22
         );
       }
 
-      outerCage.scale.setScalar(1 + explode * 0.35);
-      outerCage.rotation.y = -elapsed * 0.18;
+      const singScale = 2.0 + Math.sin(elapsed * 2.6) * 0.25 + openFactor * 3.2;
+      singularitySprite.scale.set(singScale, singScale, 1);
 
-      const corePulse = 2.1 + Math.sin(elapsed * 2.4) * 0.25 + explode * 0.85;
-      coreSprite.scale.set(corePulse, corePulse, 1);
+      tendrilGroup.rotation.z = elapsed * 0.15;
+      tendrilGroup.scale.setScalar(0.55 + openFactor * 0.85);
 
-      // Update inner neural filaments + dynamic synapses
-      const expandScale = 1 + explode * 0.42;
-      for (let i = 0; i < innerNodeCount; i++) {
-        const b = innerBase[i];
-        innerPos[i * 3] = b.x * expandScale + Math.sin(elapsed * 1.4 + i) * 0.04;
-        innerPos[i * 3 + 1] = b.y * expandScale + Math.cos(elapsed * 1.2 + i) * 0.04;
-        innerPos[i * 3 + 2] = b.z * expandScale + Math.sin(elapsed * 1.1 + i * 0.7) * 0.04;
+      for (let i = 0; i < orbCount; i++) {
+        const o = orbData[i];
+        const s = (0.65 + openFactor * 0.75) * o.scale;
+        dummy.position
+          .copy(o.pos)
+          .multiplyScalar(0.65 + openFactor * 0.75);
+        dummy.position.y += Math.sin(elapsed * 1.8 + o.phase) * 0.06;
+        dummy.scale.setScalar(s);
+        dummy.updateMatrix();
+        orbs.setMatrixAt(i, dummy.matrix);
       }
-      innerPosAttr.needsUpdate = true;
+      orbs.instanceMatrix.needsUpdate = true;
 
-      let segs = 0;
-      const threshSq = Math.pow(0.88 + explode * 0.32, 2);
-      for (let i = 0; i < innerNodeCount && segs < MAX_SYNAPSES; i++) {
-        const ax = innerPos[i * 3];
-        const ay = innerPos[i * 3 + 1];
-        const az = innerPos[i * 3 + 2];
-        for (let j = i + 1; j < innerNodeCount && segs < MAX_SYNAPSES; j++) {
-          const dx = ax - innerPos[j * 3];
-          const dy = ay - innerPos[j * 3 + 1];
-          const dz = az - innerPos[j * 3 + 2];
-          if (dx * dx + dy * dy + dz * dz < threshSq) {
-            const o = segs * 6;
-            synPositions[o] = ax;
-            synPositions[o + 1] = ay;
-            synPositions[o + 2] = az;
-            synPositions[o + 3] = innerPos[j * 3];
-            synPositions[o + 4] = innerPos[j * 3 + 1];
-            synPositions[o + 5] = innerPos[j * 3 + 2];
-            segs++;
-          }
-        }
-      }
-      synGeo.setDrawRange(0, segs * 2);
-      synPosAttr.needsUpdate = true;
-
-      // Orbiting scanner drone
-      droneGroup.position.set(
-        Math.cos(elapsed * 0.55) * 3.1,
-        1.6 + Math.sin(elapsed * 0.9) * 0.3,
-        Math.sin(elapsed * 0.55) * 2.4
+      scannerGroup.position.set(
+        -3.2 + Math.cos(elapsed * 0.6) * 0.3,
+        1.45 + Math.sin(elapsed * 0.9) * 0.2,
+        0.5
       );
-      droneGroup.rotation.y = elapsed * 1.2;
+      scannerGroup.rotation.y = elapsed * 0.9;
     },
     dispose: () => {
-      terrainGeo.dispose();
-      terrainMat.dispose();
-      terrainWireGeo.dispose();
-      terrainWireMat.dispose();
-      hexGeo.dispose();
-      hexMat.dispose();
-      blockGeo.dispose();
-      blockEdgeGeo.dispose();
-      blockMat.dispose();
-      blockEdgeMat.dispose();
-      cageGeo.dispose();
-      cageEdgeGeo.dispose();
-      cageMat.dispose();
-      coreSpriteMat.dispose();
-      innerPtsGeo.dispose();
-      innerPtsMat.dispose();
-      synGeo.dispose();
-      synMat.dispose();
-      droneGeo.dispose();
-      droneEdgeGeo.dispose();
+      disposables.forEach((d) => d.dispose());
     },
   };
 }
 
 /**
- * CH.02 // THE DRIFT: 5 Faceted Obsidian-Glass Crystals with Suspended Miniature 3D Neural Lattice Inside
+ * CH.02 // THE DRIFT: 5 Clear Faceted Quartz-Crystal Stones with Pure Cyan Ball-and-Stick Networks INSIDE Each Stone
  */
-export function buildDriftChamber(yPos: number, glowTex: THREE.CanvasTexture) {
+export function buildDriftChamber(zPos: number, glowTex: THREE.CanvasTexture) {
   const root = new THREE.Group();
-  root.position.set(0, yPos, 0);
+  root.position.set(0, 1.35, zPos);
 
-  const createFacetedCrystalGeo = (rad: number, heightScale: number, seed: number) => {
-    const g = new THREE.IcosahedronGeometry(rad, 1);
+  const disposables: { dispose: () => void }[] = [];
+  const rng = createRng(2026);
+
+  // Create sculpted pointed 6-sided clear quartz prism geometry (matching Screenshot 6!)
+  const createClearStoneGeo = (rad: number, height: number, seed: number) => {
+    const g = new THREE.CylinderGeometry(rad * 0.88, rad * 0.82, height, 6, 3);
     const pos = g.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
       const z = pos.getZ(i);
-      const wobble = 0.82 + Math.sin(x * 3.1 + seed) * 0.18 + Math.cos(z * 2.7 + seed) * 0.14;
-      pos.setXYZ(i, x * wobble * 0.78, y * heightScale * wobble, z * wobble * 0.78);
+      const normY = y / (height * 0.5); // -1..+1
+      // Taper both top and bottom ends to sharp crystal points
+      const taper = Math.abs(normY) > 0.45 ? 1 - (Math.abs(normY) - 0.45) * 1.72 : 1.0;
+      const facetShift = 0.86 + Math.sin(x * 3.2 + seed) * 0.14 + Math.cos(z * 2.9 + seed) * 0.12;
+      pos.setXYZ(i, x * Math.max(0.03, taper) * facetShift, y * 1.15, z * Math.max(0.03, taper) * facetShift);
     }
     g.computeVertexNormals();
     return g;
   };
 
-  const crystalGlassMat = new THREE.MeshPhysicalMaterial({
-    color: 0x182028,
-    roughness: 0.14,
-    metalness: 0.65,
+  // Clear reflective glass crystal material (low opacity + clearcoat + crisp specular so inner networks shine clearly!)
+  const clearCrystalMat = new THREE.MeshPhysicalMaterial({
+    color: 0xd8f8ff,
+    roughness: 0.08,
+    metalness: 0.12,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.08,
+    clearcoatRoughness: 0.05,
     transparent: true,
-    opacity: 0.76,
+    opacity: 0.24,
     flatShading: true,
     depthWrite: false,
+    side: THREE.DoubleSide,
   });
 
-  const crystalEdgeMat = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
+  const rimEdgeMat = new THREE.LineBasicMaterial({
+    color: 0xe6ffff,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.52,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
+  disposables.push(clearCrystalMat, rimEdgeMat);
 
-  const disposables: { dispose: () => void }[] = [crystalGlassMat, crystalEdgeMat];
-
-  // Hero Central Crystal
-  const heroGeo = createFacetedCrystalGeo(1.75, 1.55, 1.2);
-  const heroEdgeGeo = new THREE.EdgesGeometry(heroGeo, 8);
-  disposables.push(heroGeo, heroEdgeGeo);
-
-  const heroCrystal = new THREE.Group();
-  const heroShell = new THREE.Mesh(heroGeo, crystalGlassMat);
-  heroShell.renderOrder = 4;
-  const heroWire = new THREE.LineSegments(heroEdgeGeo, crystalEdgeMat);
-  heroWire.scale.setScalar(1.005);
-  heroCrystal.add(heroShell, heroWire);
-  root.add(heroCrystal);
-
-  // Miniature 3D Neural-Blockchain Polyhedral Lattice suspended INSIDE the Hero Crystal
-  const innerLattice = new THREE.Group();
-  const latticeOctGeo = new THREE.IcosahedronGeometry(0.68, 1);
-  const latticeBoxGeo = new THREE.BoxGeometry(0.75, 0.75, 0.75);
-  const latticeOctEdges = new THREE.EdgesGeometry(latticeOctGeo);
-  const latticeBoxEdges = new THREE.EdgesGeometry(latticeBoxGeo);
-  const latticeMat = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.92,
-    blending: THREE.AdditiveBlending,
-  });
-  const latticeWire1 = new THREE.LineSegments(latticeOctEdges, latticeMat);
-  const latticeWire2 = new THREE.LineSegments(latticeBoxEdges, latticeMat);
-  innerLattice.add(latticeWire1, latticeWire2);
-
-  const miniGlowMat = new THREE.SpriteMaterial({
-    map: glowTex,
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.75,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const miniGlow = new THREE.Sprite(miniGlowMat);
-  miniGlow.scale.set(1.5, 1.5, 1);
-  innerLattice.add(miniGlow);
-  root.add(innerLattice);
-  disposables.push(latticeOctGeo, latticeBoxGeo, latticeOctEdges, latticeBoxEdges, latticeMat, miniGlowMat);
-
-  // 4 Flanking Satellite Crystals in Depth
-  const satConfigs = [
-    { pos: [-4.2, 0.6, -2.5], rad: 0.95, h: 1.5, seed: 2.4 },
-    { pos: [4.1, 0.4, -2.2], rad: 0.9, h: 1.45, seed: 4.1 },
-    { pos: [-2.7, -1.6, -4.6], rad: 0.72, h: 1.4, seed: 5.7 },
-    { pos: [2.8, 1.5, -4.4], rad: 0.78, h: 1.5, seed: 7.3 },
+  const crystalDefs: {
+    pos: [number, number, number];
+    rad: number;
+    height: number;
+    seed: number;
+    variant: 'lattice' | 'cluster' | 'tetra' | 'octa' | 'prism';
+    netScale: number;
+    rot: [number, number, number];
+  }[] = [
+    { pos: [0.0, 0.0, 0.0], rad: 1.45, height: 3.9, seed: 1.1, variant: 'lattice', netScale: 1.42, rot: [0.04, 0.2, 0.03] },
+    { pos: [-3.9, -0.55, -1.6], rad: 1.05, height: 2.9, seed: 2.6, variant: 'cluster', netScale: 1.05, rot: [0.1, 0.4, -0.15] },
+    { pos: [3.85, -0.75, -1.3], rad: 1.08, height: 2.95, seed: 4.3, variant: 'tetra', netScale: 1.1, rot: [-0.08, -0.35, 0.14] },
+    { pos: [-2.7, 1.35, -4.4], rad: 0.82, height: 2.3, seed: 5.9, variant: 'octa', netScale: 0.85, rot: [0.15, 0.25, 0.18] },
+    { pos: [2.85, 1.25, -4.2], rad: 0.86, height: 2.4, seed: 7.4, variant: 'cluster', netScale: 0.88, rot: [-0.12, -0.2, -0.16] },
   ];
 
-  const satellites: { group: THREE.Group; baseY: number; speed: number }[] = [];
-  satConfigs.forEach((cfg, idx) => {
-    const g = createFacetedCrystalGeo(cfg.rad, cfg.h, cfg.seed);
-    const e = new THREE.EdgesGeometry(g, 10);
-    disposables.push(g, e);
+  const crystals: {
+    group: THREE.Group;
+    innerNet: THREE.Group;
+    basePos: THREE.Vector3;
+    baseRot: THREE.Euler;
+  }[] = [];
 
-    const satGroup = new THREE.Group();
-    satGroup.position.set(cfg.pos[0], cfg.pos[1], cfg.pos[2]);
-    satGroup.add(new THREE.Mesh(g, crystalGlassMat), new THREE.LineSegments(e, crystalEdgeMat));
+  crystalDefs.forEach((def) => {
+    const cGroup = new THREE.Group();
+    cGroup.position.set(...def.pos);
+    cGroup.rotation.set(...def.rot);
 
-    // Tiny core lattice inside satellite crystal
-    const satInner = new THREE.LineSegments(latticeBoxEdges, latticeMat);
-    satInner.scale.setScalar(0.55);
-    satGroup.add(satInner);
+    const geo = createClearStoneGeo(def.rad, def.height, def.seed);
+    const edgesGeo = new THREE.EdgesGeometry(geo, 12);
+    disposables.push(geo, edgesGeo);
 
-    root.add(satGroup);
-    satellites.push({ group: satGroup, baseY: cfg.pos[1], speed: 0.25 + idx * 0.08 });
+    const shellMesh = new THREE.Mesh(geo, clearCrystalMat);
+    shellMesh.renderOrder = 6;
+    const edgeWire = new THREE.LineSegments(edgesGeo, rimEdgeMat);
+    edgeWire.scale.setScalar(1.004);
+    cGroup.add(shellMesh, edgeWire);
+
+    // Pure Cyan Ball-and-Stick Network suspended INSIDE the Clear Crystal Stone
+    const innerNet = buildInnerBallStickNetwork(def.variant, def.netScale, disposables);
+    cGroup.add(innerNet);
+
+    // Soft pure cyan aura behind the inner network
+    const auraMat = new THREE.SpriteMaterial({
+      map: glowTex,
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0.36,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const aura = new THREE.Sprite(auraMat);
+    aura.scale.set(def.rad * 1.4, def.rad * 1.4, 1);
+    cGroup.add(aura);
+    disposables.push(auraMat);
+
+    root.add(cGroup);
+    crystals.push({
+      group: cGroup,
+      innerNet,
+      basePos: new THREE.Vector3(...def.pos),
+      baseRot: new THREE.Euler(...def.rot),
+    });
   });
+
+  // Floating translucent crystal pebbles around the field (like foreground/background stones in Screenshot 6)
+  const pebbleGeo = new THREE.DodecahedronGeometry(0.16, 0);
+  const pebbleCount = 24;
+  const pebbles = new THREE.InstancedMesh(pebbleGeo, clearCrystalMat, pebbleCount);
+  const pebbleData = Array.from({ length: pebbleCount }, () => ({
+    pos: new THREE.Vector3((rng() - 0.5) * 11, (rng() - 0.5) * 5.2, (rng() - 0.5) * 7),
+    scale: 0.6 + rng() * 1.1,
+    speed: 0.3 + rng() * 0.5,
+  }));
+  const dummy = new THREE.Object3D();
+  root.add(pebbles);
+  disposables.push(pebbleGeo);
 
   return {
     root,
     update: (elapsed: number, pointerX: number, pointerY: number) => {
-      heroCrystal.rotation.y = elapsed * 0.16 + pointerX * 0.35;
-      heroCrystal.rotation.x = Math.sin(elapsed * 0.4) * 0.08 + pointerY * 0.22;
-      innerLattice.rotation.y = -elapsed * 0.42;
-      innerLattice.rotation.x = elapsed * 0.28;
-
-      satellites.forEach((s, idx) => {
-        s.group.rotation.y = elapsed * s.speed + idx;
-        s.group.position.y = s.baseY + Math.sin(elapsed * 0.85 + idx * 1.4) * 0.22;
+      crystals.forEach((c, idx) => {
+        c.group.position.y = c.basePos.y + Math.sin(elapsed * 0.8 + idx * 1.2) * 0.14;
+        c.group.rotation.y = c.baseRot.y + Math.sin(elapsed * 0.35 + idx) * 0.14 + pointerX * 0.25;
+        c.group.rotation.x = c.baseRot.x + pointerY * 0.15;
+        c.innerNet.rotation.y = elapsed * (0.32 + idx * 0.05);
+        c.innerNet.rotation.x = elapsed * 0.18;
       });
+
+      for (let i = 0; i < pebbleCount; i++) {
+        const p = pebbleData[i];
+        dummy.position.copy(p.pos);
+        dummy.position.y += Math.sin(elapsed * p.speed + i) * 0.22;
+        dummy.rotation.set(elapsed * p.speed, elapsed * 0.4 + i, 0);
+        dummy.scale.setScalar(p.scale);
+        dummy.updateMatrix();
+        pebbles.setMatrixAt(i, dummy.matrix);
+      }
+      pebbles.instanceMatrix.needsUpdate = true;
     },
     dispose: () => {
       disposables.forEach((d) => d.dispose());
@@ -472,14 +663,18 @@ export function buildDriftChamber(yPos: number, glowTex: THREE.CanvasTexture) {
 /**
  * CH.03 // THE IRIS: Hexagonal Basalt Column Canyon Rim + 4-Ring Mechanized Gyroscope Portal
  */
-export function buildIrisChamber(yPos: number, obsidianTex: THREE.CanvasTexture, glowTex: THREE.CanvasTexture) {
+export function buildIrisChamber(
+  yPos: number,
+  zPos: number,
+  obsidianTex: THREE.CanvasTexture,
+  glowTex: THREE.CanvasTexture
+) {
   const root = new THREE.Group();
-  root.position.set(0, yPos, 0);
+  root.position.set(0, yPos, zPos);
 
-  // 1. Hexagonal Basalt Canyon Shaft encircling the Gyroscope Portal
   const rng = createRng(3303);
-  const colCount = 44;
-  const colGeo = new THREE.CylinderGeometry(0.58, 0.62, 11.5, 6);
+  const colCount = 46;
+  const colGeo = new THREE.CylinderGeometry(0.58, 0.62, 12.5, 6);
   const colMat = new THREE.MeshStandardMaterial({
     color: 0x16191f,
     map: obsidianTex,
@@ -492,9 +687,9 @@ export function buildIrisChamber(yPos: number, obsidianTex: THREE.CanvasTexture,
 
   for (let i = 0; i < colCount; i++) {
     const ring = i < 24 ? 0 : 1;
-    const angle = (i / (ring === 0 ? 24 : 20)) * Math.PI * 2 + ring * 0.2;
-    const rad = ring === 0 ? 5.6 + rng() * 0.7 : 7.1 + rng() * 1.1;
-    dummy.position.set(Math.cos(angle) * rad, 1.2 + rng() * 2.8, Math.sin(angle) * rad);
+    const angle = (i / (ring === 0 ? 24 : 22)) * Math.PI * 2 + ring * 0.2;
+    const rad = ring === 0 ? 5.6 + rng() * 0.7 : 7.2 + rng() * 1.1;
+    dummy.position.set(Math.cos(angle) * rad, 1.4 + rng() * 3.0, Math.sin(angle) * rad);
     dummy.rotation.set(0, rng() * Math.PI, 0);
     dummy.scale.set(0.9 + rng() * 0.45, 0.85 + rng() * 0.5, 0.9 + rng() * 0.45);
     dummy.updateMatrix();
@@ -503,9 +698,8 @@ export function buildIrisChamber(yPos: number, obsidianTex: THREE.CanvasTexture,
   canyonCols.instanceMatrix.needsUpdate = true;
   root.add(canyonCols);
 
-  // 2. Concentric Mechanized Gyroscope Portal Rings (Horizontal plane so vertical scroll plunges straight through)
   const portalGroup = new THREE.Group();
-  portalGroup.rotation.x = Math.PI / 2; // Face upward toward incoming diving camera
+  portalGroup.rotation.x = Math.PI / 2;
   root.add(portalGroup);
 
   const ringSolidMat = new THREE.MeshStandardMaterial({
@@ -549,7 +743,6 @@ export function buildIrisChamber(yPos: number, obsidianTex: THREE.CanvasTexture,
     ringContainers.push({ group: container, speed: spec.speed });
   });
 
-  // Glowing Portal Singularity Halo
   const coreSpriteMat = new THREE.SpriteMaterial({
     map: glowTex,
     color: 0x00ffff,
@@ -591,28 +784,25 @@ export function buildIrisChamber(yPos: number, obsidianTex: THREE.CanvasTexture,
  */
 export function buildPedestalChamber(
   yPos: number,
+  zPos: number,
   circuitTex: THREE.CanvasTexture,
   glowTex: THREE.CanvasTexture
 ) {
   const root = new THREE.Group();
-  root.position.set(0, yPos, 0);
+  root.position.set(0, yPos, zPos);
 
-  // 1. Multi-Tiered Machined Graphite & Pure Cyan Pedestal Platform
   const platformGroup = new THREE.Group();
   platformGroup.position.set(0, -1.75, 0);
   root.add(platformGroup);
 
-  // Top dial disc with 1024px circuit texture
   const topDiscGeo = new THREE.CylinderGeometry(3.85, 3.95, 0.14, 64);
   const topDiscMat = new THREE.MeshStandardMaterial({
     map: circuitTex,
     roughness: 0.34,
     metalness: 0.78,
   });
-  const topDisc = new THREE.Mesh(topDiscGeo, topDiscMat);
-  platformGroup.add(topDisc);
+  platformGroup.add(new THREE.Mesh(topDiscGeo, topDiscMat));
 
-  // Stepped dark armored base apron
   const baseGeo = new THREE.CylinderGeometry(4.2, 4.65, 0.36, 48);
   const baseMat = new THREE.MeshStandardMaterial({
     color: 0x14171d,
@@ -623,7 +813,6 @@ export function buildPedestalChamber(
   baseMesh.position.y = -0.24;
   platformGroup.add(baseMesh);
 
-  // 16 Radial Beveled Trim Blocks around pedestal rim
   const trimCount = 16;
   const trimGeo = new THREE.BoxGeometry(0.55, 0.18, 0.28);
   const trimMat = new THREE.MeshStandardMaterial({
@@ -643,7 +832,6 @@ export function buildPedestalChamber(
   trims.instanceMatrix.needsUpdate = true;
   platformGroup.add(trims);
 
-  // Recessed glowing Pure Cyan energy rings on floor + floating orbital arc
   const ringGeos: THREE.BufferGeometry[] = [];
   const cyanRingMat = new THREE.MeshBasicMaterial({
     color: 0x00ffff,
@@ -663,7 +851,6 @@ export function buildPedestalChamber(
     platformGroup.add(rm);
   });
 
-  // Sweeping floating energy arcs around hologram
   const arcGroup = new THREE.Group();
   arcGroup.position.set(0, 0.35, 0);
   root.add(arcGroup);
@@ -683,14 +870,12 @@ export function buildPedestalChamber(
     arcGroup.add(arc);
   }
 
-  // Overhead ring halo emitter
   const topHaloGeo = new THREE.TorusGeometry(2.15, 0.028, 12, 64);
   topHaloGeo.rotateX(Math.PI / 2);
   const topHalo = new THREE.Mesh(topHaloGeo, cyanRingMat);
   topHalo.position.set(0, 2.65, 0);
   root.add(topHalo);
 
-  // 2. Wireframe Polyhedral Blockchain Graph Cage (visible strongly in 'blockchain' mode)
   const graphGroup = new THREE.Group();
   graphGroup.position.set(0, 0.35, 0);
   root.add(graphGroup);
@@ -706,11 +891,11 @@ export function buildPedestalChamber(
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  const graphWire1 = new THREE.LineSegments(icoEdgesGeo, graphWireMat);
-  const graphWire2 = new THREE.LineSegments(octEdgesGeo, graphWireMat);
-  graphGroup.add(graphWire1, graphWire2);
+  graphGroup.add(
+    new THREE.LineSegments(icoEdgesGeo, graphWireMat),
+    new THREE.LineSegments(octEdgesGeo, graphWireMat)
+  );
 
-  // 3. 2,200-Particle Morphing Cyan Hologram (Blockchain Polyhedron <-> Swirling Neural Wave <-> Double Helix)
   const P_COUNT = 2200;
   const rng = createRng(9924);
   const blockchainArr = new Float32Array(P_COUNT * 3);
@@ -718,7 +903,6 @@ export function buildPedestalChamber(
   const helixArr = new Float32Array(P_COUNT * 3);
   const liveArr = new Float32Array(P_COUNT * 3);
 
-  // Sample edges of an icosahedron for crisp Blockchain Graph points
   const icoPos = icoEdgesGeo.attributes.position;
   const edgeSegCount = icoPos.count / 2;
   const vA = new THREE.Vector3();
@@ -727,14 +911,11 @@ export function buildPedestalChamber(
 
   for (let i = 0; i < P_COUNT; i++) {
     const u = i / P_COUNT;
-
-    // Mode 1: Blockchain Polyhedral Graph (points densely trace polyhedron edges + inner core)
     if (i < P_COUNT * 0.78) {
       const segIdx = i % edgeSegCount;
       vA.fromBufferAttribute(icoPos, segIdx * 2);
       vB.fromBufferAttribute(icoPos, segIdx * 2 + 1);
-      const tEdge = rng();
-      vLerp.lerpVectors(vA, vB, tEdge);
+      vLerp.lerpVectors(vA, vB, rng());
       vLerp.x += (rng() - 0.5) * 0.05;
       vLerp.y += (rng() - 0.5) * 0.05;
       vLerp.z += (rng() - 0.5) * 0.05;
@@ -749,14 +930,12 @@ export function buildPedestalChamber(
     blockchainArr[i * 3 + 1] = vLerp.y;
     blockchainArr[i * 3 + 2] = vLerp.z;
 
-    // Mode 2: Swirling Quantum Neural Wave (curling 3D organic ribbon cloud)
     const theta = u * Math.PI * 8;
     const waveR = 0.8 + Math.sin(theta * 0.5) * 0.65 + (rng() - 0.5) * 0.45;
     neuralArr[i * 3] = Math.cos(theta) * waveR;
     neuralArr[i * 3 + 1] = Math.sin(theta * 0.75) * 0.95 + (rng() - 0.5) * 0.4;
     neuralArr[i * 3 + 2] = Math.sin(theta) * waveR;
 
-    // Mode 3: Protocol Double Helix
     const strand = i % 2 === 0 ? 1 : -1;
     const hAngle = u * Math.PI * 7;
     const hRad = 1.05;

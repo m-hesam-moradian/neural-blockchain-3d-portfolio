@@ -176,6 +176,78 @@ export default function App() {
         </>
       )}
 
+      {/* Left & Right Vertical Millimeter Scale Rulers (matching reference screenshots) */}
+      {!hudHidden && (
+        <>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed left-3 md:left-5 top-1/2 -translate-y-1/2 z-20 hidden sm:flex flex-col items-start gap-2.5 opacity-60"
+          >
+            {Array.from({ length: 19 }).map((_, idx) => (
+              <span
+                key={idx}
+                className={`block h-[1px] ${
+                  idx % 6 === 0 ? 'w-3 bg-[#00FFFF]/80' : 'w-1.5 bg-[#8A929A]'
+                }`}
+              />
+            ))}
+          </div>
+
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-20 hidden sm:flex flex-col items-end gap-2.5 opacity-65"
+          >
+            <div className="relative flex flex-col items-end gap-2.5">
+              {Array.from({ length: 19 }).map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`block h-[1px] ${
+                    idx % 6 === 0 ? 'w-3 bg-[#00FFFF]/80' : 'w-1.5 bg-[#8A929A]'
+                  }`}
+                />
+              ))}
+              {/* Elevation cursor along right ruler */}
+              <span
+                className="absolute right-0 w-4 h-[2px] bg-[#00FFFF] transition-all duration-75"
+                style={{ top: `${Math.round(scrollProgress * 100)}%` }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* CH.01 Bottom-Left Circular Telemetry Radar Reticle */}
+      {!hudHidden && activeChamberIdx === 0 && warpIntensity < 0.3 && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed left-7 bottom-16 z-20 hidden md:flex items-center gap-3 opacity-65"
+        >
+          <div className="relative h-14 w-14 rounded-full border border-[#8A929A]/45 flex items-center justify-center">
+            <div className="h-9 w-9 rounded-full border border-[#00FFFF]/60 border-t-transparent animate-[spin_9s_linear_infinite]" />
+            <span className="absolute h-1.5 w-1.5 rounded-full bg-[#00FFFF]" />
+          </div>
+          <div className="font-mono-hud text-[9px] leading-tight tracking-widest text-[#8A929A]">
+            <p className="text-[#00FFFF]">LATTICE // LOCKED</p>
+            <p>CELLS: 26 · RADIAL</p>
+          </div>
+        </div>
+      )}
+
+      {/* CH.02 Center Crystal Corner-Bracket Reticle (matching Screenshot 6) */}
+      {!hudHidden && activeChamberIdx === 1 && warpIntensity < 0.35 && !isOrbiting && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-15 flex items-center justify-center"
+        >
+          <div className="relative h-56 w-56 md:h-72 md:w-72">
+            <span className="absolute top-0 left-0 h-5 w-5 border-t border-l border-[#00FFFF]/75" />
+            <span className="absolute top-0 right-0 h-5 w-5 border-t border-r border-[#00FFFF]/75" />
+            <span className="absolute bottom-0 left-0 h-5 w-5 border-b border-l border-[#00FFFF]/75" />
+            <span className="absolute bottom-0 right-0 h-5 w-5 border-b border-r border-[#00FFFF]/75" />
+          </div>
+        </div>
+      )}
+
       {/* Minimal Igloo-Style Corner HUD Overlay */}
       <div className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between p-5 md:p-7">
         {/* Top Row */}
