@@ -7,6 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { DETAILED_CHAMBERS } from '../data/portfolioSections';
+import { RESUME_DATA } from '../data/resume';
 import {
   buildDriftChamber,
   buildIrisChamber,
@@ -18,6 +19,7 @@ import {
 } from './detailedChambers';
 import {
   createBinaryBlockchainBlockTextures,
+  createNeutralGlowTexture,
   createObsidianSurfaceTexture,
   createPedestalCircuitTexture,
   createPureCyanGlowTexture,
@@ -31,7 +33,8 @@ interface ObsidianCyanSceneProps {
     chamberIdx: number,
     warpFlash: number,
     teleportFlash: number,
-    isOrbiting: boolean
+    isOrbiting: boolean,
+    solarFlash: number
   ) => void;
 }
 
@@ -40,6 +43,8 @@ const _vA = new THREE.Vector3();
 const _vB = new THREE.Vector3();
 const _vC = new THREE.Vector3();
 const _vD = new THREE.Vector3();
+const _vMid = new THREE.Vector3();
+const _sunWorld = new THREE.Vector3(0, -23.4, -10.3);
 const _camGoalPos = new THREE.Vector3();
 const _camGoalTarget = new THREE.Vector3();
 const _dummy = new THREE.Object3D();
@@ -63,13 +68,16 @@ function sampleDetailedFlight(
   progress: number,
   rideCurve: THREE.CatmullRomCurve3,
   lastNeuronWorld: THREE.Vector3,
+  sunWorld: THREE.Vector3,
   outPos: THREE.Vector3,
   outTarget: THREE.Vector3
 ): {
   chamberIdx: number;
   warpIntensity: number;
   teleportFlash: number;
+  solarFlash: number;
   teleported: boolean;
+  sunEntered: boolean;
   portalFlyProgress: number;
   summitExplodeProgress: number;
   neuralRevealProgress: number;
@@ -133,7 +141,9 @@ function sampleDetailedFlight(
       chamberIdx: 0,
       warpIntensity,
       teleportFlash: 0,
+      solarFlash: 0,
       teleported: false,
+      sunEntered: false,
       portalFlyProgress,
       summitExplodeProgress,
       neuralRevealProgress,
@@ -159,7 +169,9 @@ function sampleDetailedFlight(
       chamberIdx: 1,
       warpIntensity: 0,
       teleportFlash: 0,
+      solarFlash: 0,
       teleported: false,
+      sunEntered: false,
       portalFlyProgress: 0,
       summitExplodeProgress: 1,
       neuralRevealProgress: 1,
@@ -185,7 +197,9 @@ function sampleDetailedFlight(
       chamberIdx: 1,
       warpIntensity: 0,
       teleportFlash: 0,
+      solarFlash: 0,
       teleported: false,
+      sunEntered: false,
       portalFlyProgress: 0,
       summitExplodeProgress: 1,
       neuralRevealProgress: 1,
@@ -201,7 +215,6 @@ function sampleDetailedFlight(
   // Segment 2C: Unified Sweeping Spline Glide from Hold -> First Neuron -> 3 Neurons -> Inside Last Neuron (0.46 -> 0.592)
   if (p < 0.592) {
     const u = THREE.MathUtils.clamp((p - 0.46) / (0.592 - 0.46), 0, 1);
-    // Gentle ease-in & smooth steady motion through neurons (no jerky acceleration!)
     const rideT = u < 0.2 ? 0.5 * (u / 0.2) * u : u;
     const clampedT = THREE.MathUtils.clamp(rideT, 0, 1);
     rideCurve.getPointAt(clampedT, outPos);
@@ -215,7 +228,6 @@ function sampleDetailedFlight(
       _vD.lerpVectors(_vC, _vA, endBlend);
     }
 
-    // Smoothly pan view onto the glowing neuron path during first 24% so there is zero sudden head-turn
     const lookPan = THREE.MathUtils.smoothstep(u, 0.0, 0.24);
     _vC.set(0, 1.55, 0);
     outTarget.lerpVectors(_vC, _vD, lookPan);
@@ -225,7 +237,9 @@ function sampleDetailedFlight(
       chamberIdx: 1,
       warpIntensity: 0,
       teleportFlash,
+      solarFlash: 0,
       teleported: false,
+      sunEntered: false,
       portalFlyProgress: 0,
       summitExplodeProgress: 1,
       neuralRevealProgress: 1,
@@ -254,7 +268,9 @@ function sampleDetailedFlight(
       chamberIdx: 2,
       warpIntensity: 0,
       teleportFlash,
+      solarFlash: 0,
       teleported: true,
+      sunEntered: false,
       portalFlyProgress: 0,
       summitExplodeProgress: 1,
       neuralRevealProgress: 0,
@@ -267,13 +283,13 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 3: CH.03 Helical Solar Vortex Left-Half Showcase (0.72) -> Center & Plunge through Sun Core -> CH.04 Pedestal (1.00)
+  // Segment 3: CH.03 Helical Solar Vortex (0.72) -> Fly Directly Into Leading Sun Core -> CH.04 Pedestal (1.00)
   const u = (p - DETAILED_CHAMBERS[2].scrollAt) / (1.0 - DETAILED_CHAMBERS[2].scrollAt);
   if (u < 0.34) {
     // Hold gently framing 3D Helical Solar Vortex on LEFT half while WORK card occupies RIGHT half
     const t = u / 0.34;
     const eased = t * t * (3 - 2 * t);
-    portalFlyProgress = eased * 0.1;
+    portalFlyProgress = eased * 0.08;
 
     _vA.set(...DETAILED_CHAMBERS[2].camPos); // [3.9, -20.8, 0.2]
     _vB.set(3.75, -21.2, -0.4);
@@ -287,7 +303,9 @@ function sampleDetailedFlight(
       chamberIdx: 2,
       warpIntensity: 0,
       teleportFlash,
+      solarFlash: 0,
       teleported: true,
+      sunEntered: false,
       portalFlyProgress,
       summitExplodeProgress: 1,
       neuralRevealProgress: 0,
@@ -298,55 +316,70 @@ function sampleDetailedFlight(
       farPlane: 180,
       frontWallFade: 1,
     };
-  } else if (u < 0.68) {
-    // As WORK card fades out, glide smoothly back to x=0 and dive through the Solar Vortex core toward CH.04
-    const t = (u - 0.34) / 0.34;
+  } else if (u < 0.71) {
+    // Curved dive directly into the glowing Sun sphere at the front of the Solar Vortex
+    const t = (u - 0.34) / 0.37;
     const eased = t * t * (3 - 2 * t);
-    portalFlyProgress = 0.1 + eased * 0.9;
-    warpIntensity = THREE.MathUtils.smoothstep(t, 0.2, 1.0) * 0.72;
+    const inv = 1 - eased;
+    portalFlyProgress = 0.08 + eased * 0.92;
 
     _vA.set(3.75, -21.2, -0.4);
-    _vB.set(0, -31.5, -11.5);
-    outPos.lerpVectors(_vA, _vB, eased);
+    _vMid.set(sunWorld.x + 1.15, sunWorld.y + 0.65, sunWorld.z + 3.6);
+    _vB.copy(sunWorld);
 
+    // Quadratic Bezier curve smoothly steering straight into the Sun's glowing core
+    outPos
+      .set(0, 0, 0)
+      .addScaledVector(_vA, inv * inv)
+      .addScaledVector(_vMid, 2 * inv * eased)
+      .addScaledVector(_vB, eased * eased);
+
+    const lookBlend = THREE.MathUtils.smoothstep(t, 0.0, 0.42);
     _vC.set(3.6, -24.0, -12.0);
-    _vD.set(0, -48.0, -12.0);
-    outTarget.lerpVectors(_vC, _vD, eased);
+    outTarget.lerpVectors(_vC, sunWorld, lookBlend);
+
+    const solarFlash = THREE.MathUtils.smoothstep(u, 0.61, 0.71);
 
     return {
-      chamberIdx: u < 0.5 ? 2 : 3,
-      warpIntensity,
+      chamberIdx: u < 0.58 ? 2 : 3,
+      warpIntensity: 0,
       teleportFlash: 0,
+      solarFlash,
       teleported: true,
+      sunEntered: false,
       portalFlyProgress,
       summitExplodeProgress: 1,
       neuralRevealProgress: 0,
       neuralPauseFactor: 0,
       enterNeuronProgress: 1,
       horizontalWarp: false,
-      nearPlane: 0.1,
+      nearPlane: 0.05,
       farPlane: 180,
       frontWallFade: 1,
     };
   } else {
-    const t = (u - 0.68) / 0.32;
+    // Emerged out the far side of the Sun core into CH.04 Contact Pedestal
+    const t = (u - 0.71) / 0.29;
     const eased = 1 - Math.pow(1 - t, 3);
     portalFlyProgress = 1;
-    warpIntensity = Math.max(0, 1 - t * 2.4) * 0.72;
 
-    _vA.set(0, -31.5, -11.5);
+    _vA.set(0.0, -47.2, -5.6);
     _vB.set(...DETAILED_CHAMBERS[3].camPos);
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(0, -48.0, -12.0);
+    _vC.set(0.0, -51.35, -12.0);
     _vD.set(...DETAILED_CHAMBERS[3].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
+    const solarFlash = 1 - THREE.MathUtils.smoothstep(u, 0.71, 0.82);
+
     return {
       chamberIdx: 3,
-      warpIntensity,
+      warpIntensity: 0,
       teleportFlash: 0,
+      solarFlash,
       teleported: true,
+      sunEntered: true,
       portalFlyProgress,
       summitExplodeProgress: 1,
       neuralRevealProgress: 0,
@@ -477,6 +510,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     // Procedural Textures
     const maxAniso = renderer.capabilities.getMaxAnisotropy();
     const glowTex = createPureCyanGlowTexture();
+    const neutralGlowTex = createNeutralGlowTexture();
     const obsidianTex = createObsidianSurfaceTexture(maxAniso);
     const circuitTex = createPedestalCircuitTexture(maxAniso);
     const binaryTexA = createBinaryBlockchainBlockTextures(maxAniso, 1);
@@ -516,7 +550,14 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       0.45
     );
 
-    const irisChamber = buildIrisChamber(-24, -12, obsidianTex, glowTex);
+    const irisChamber = buildIrisChamber(
+      -24,
+      -12,
+      obsidianTex,
+      glowTex,
+      neutralGlowTex,
+      RESUME_DATA.keySkills
+    );
     scene.add(irisChamber.root);
 
     const pedestalChamber = buildPedestalChamber(-52, -12, circuitTex, glowTex);
@@ -639,8 +680,10 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     let lastChamberIdx = -1;
     let lastWarp = -1;
     let lastTeleportFlash = -1;
+    let lastSolarFlash = -1;
     let lastOrbit = false;
     let prevTeleported = scrollRef.current >= 0.592;
+    let prevSunEntered = scrollRef.current >= 0.9188;
     let smoothScroll = scrollRef.current;
     const clock = new THREE.Clock();
 
@@ -685,11 +728,15 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       pointerSmooth.x = THREE.MathUtils.lerp(pointerSmooth.x, pointerTarget.x, pAlpha);
       pointerSmooth.y = THREE.MathUtils.lerp(pointerSmooth.y, pointerTarget.y, pAlpha);
 
+      irisChamber.getSunWorldPosition(_sunWorld);
+
       const {
         chamberIdx,
         warpIntensity,
         teleportFlash,
+        solarFlash,
         teleported,
+        sunEntered,
         portalFlyProgress,
         summitExplodeProgress,
         neuralRevealProgress,
@@ -703,6 +750,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         smoothScroll,
         rideCurve,
         lastNeuronWorld,
+        _sunWorld,
         _camGoalPos,
         _camGoalTarget
       );
@@ -711,17 +759,26 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         chamberIdx !== lastChamberIdx ||
         Math.abs(warpIntensity - lastWarp) > 0.02 ||
         Math.abs(teleportFlash - lastTeleportFlash) > 0.015 ||
+        Math.abs(solarFlash - lastSolarFlash) > 0.015 ||
         userOrbitingRef.current !== lastOrbit
       ) {
         lastChamberIdx = chamberIdx;
         lastWarp = warpIntensity;
         lastTeleportFlash = teleportFlash;
+        lastSolarFlash = solarFlash;
         lastOrbit = userOrbitingRef.current;
-        telemetryCbRef.current?.(chamberIdx, warpIntensity, teleportFlash, userOrbitingRef.current);
+        telemetryCbRef.current?.(
+          chamberIdx,
+          warpIntensity,
+          teleportFlash,
+          userOrbitingRef.current,
+          solarFlash
+        );
       }
 
-      const crossedTeleport = teleported !== prevTeleported;
+      const crossedTeleport = teleported !== prevTeleported || sunEntered !== prevSunEntered;
       prevTeleported = teleported;
+      prevSunEntered = sunEntered;
 
       if (crossedTeleport) {
         camera.near = nearPlane;
@@ -742,7 +799,9 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         if (!userOrbitingRef.current) {
           const camDist = _camGoalPos.distanceTo(_camGoalTarget);
           const parallaxScale =
-            enterNeuronProgress > 0.05 ? 0 : Math.min(1.0, camDist * 0.09);
+            enterNeuronProgress > 0.05 || portalFlyProgress > 0.12
+              ? 0
+              : Math.min(1.0, camDist * 0.09);
           _camGoalPos.x += pointerSmooth.x * 0.72 * parallaxScale;
           _camGoalPos.y += pointerSmooth.y * 0.42 * parallaxScale;
 
@@ -759,7 +818,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
 
       controls.update();
 
-      // Clean visibility separation so Summit / Chosen Block NEVER clip during teleport to Iris!
+      // Clean visibility separation across portals (Neuron -> Solar Vortex -> Inside Sun -> Pedestal)
       volcanicTerrain.root.visible = !teleported && camera.position.z > 0.65;
       summitChamber.root.visible = !teleported;
       if (summitChamber.root.visible) {
@@ -779,11 +838,11 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
           enterNeuronProgress
         );
       }
-      irisChamber.root.visible = teleported;
-      if (irisChamber.root.visible && camera.position.y > -46) {
+      irisChamber.root.visible = teleported && !sunEntered;
+      if (irisChamber.root.visible) {
         irisChamber.update(elapsed, pointerSmooth.x, pointerSmooth.y, portalFlyProgress);
       }
-      pedestalChamber.root.visible = teleported && camera.position.y < -22;
+      pedestalChamber.root.visible = teleported && sunEntered;
       if (pedestalChamber.root.visible) {
         pedestalChamber.update(
           elapsed,
@@ -794,7 +853,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         );
       }
 
-      motes.visible = camera.position.z > 0.65 || camera.position.y < -2.0;
+      motes.visible = camera.position.z > 0.65 || sunEntered;
 
       // Animate Hyperspace Warp Streaks (Z-tunnel for CH.01->02, Y-shaft for CH.03->04)
       warpStreaks.visible = warpIntensity > 0.02;
@@ -859,6 +918,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       composer?.dispose();
       envTarget.dispose();
       glowTex.dispose();
+      neutralGlowTex.dispose();
       obsidianTex.dispose();
       circuitTex.dispose();
       binaryTexA.map.dispose();

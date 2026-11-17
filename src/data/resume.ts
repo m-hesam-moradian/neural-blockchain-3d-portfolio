@@ -44,6 +44,11 @@ export interface ResumeTelemetryRow {
   highlight?: boolean;
 }
 
+export interface ResumeKeySkill {
+  name: string;
+  color: string; // Hex accent color for the orbiting planet & helical ribbon trail
+}
+
 export interface ResumeData {
   identity: {
     name: string;
@@ -63,6 +68,8 @@ export interface ResumeData {
     telemetry: ResumeTelemetryRow[];
     capabilities: ResumeCapability[];
   };
+  /** Dynamic key skills rendered as orbiting planets in CH.03 (count & colors auto-adapt) */
+  keySkills: ResumeKeySkill[];
   projects: ResumeProject[];
   experience: ResumeExperience[];
 }
@@ -107,6 +114,14 @@ export const RESUME_DATA: ResumeData = {
       },
     ],
   },
+  keySkills: [
+    { name: 'AI / PyTorch', color: '#FF7A2F' },
+    { name: 'Rust Systems', color: '#1E40AF' },
+    { name: 'Three.js / GLSL', color: '#00D4E8' },
+    { name: 'ZK Consensus', color: '#2563EB' },
+    { name: 'CUDA Inference', color: '#F59E0B' },
+    { name: 'TypeScript', color: '#38BDF8' },
+  ],
   projects: [
     {
       id: 'SYNAPSE_CHAIN',

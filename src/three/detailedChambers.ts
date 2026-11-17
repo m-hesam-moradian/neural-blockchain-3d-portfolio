@@ -1,5 +1,9 @@
 import * as THREE from 'three';
-import { createNeuralMetricSpriteTexture } from './proceduralTextures';
+import { ResumeKeySkill } from '../data/resume';
+import {
+  createNeuralMetricSpriteTexture,
+  createSkillPlanetLabelTexture,
+} from './proceduralTextures';
 
 export type PedestalMode = 'blockchain' | 'neural' | 'helix';
 
@@ -1083,15 +1087,18 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
 }
 
 /**
- * CH.03 // HELICAL SOLAR VORTEX:
- * Open space (zero blocking pillars) featuring a moving luminous Sun core,
- * trailing trajectory beam, and orbiting planets carving 3D helical vortex ribbons.
+ * CH.03 // DYNAMIC KEY-SKILLS SOLAR VORTEX:
+ * Open space featuring a warm amber Sun core, trailing trajectory beam, and orbiting
+ * colored Key-Skill planets (dynamically driven by RESUME_DATA.keySkills count & colors)
+ * carving clean helical vortex ribbons with restrained, non-glaring illumination.
  */
 export function buildIrisChamber(
   yPos: number,
   zPos: number,
   _obsidianTex: THREE.CanvasTexture,
-  glowTex: THREE.CanvasTexture
+  _glowTex: THREE.CanvasTexture,
+  neutralGlowTex: THREE.CanvasTexture,
+  keySkills: ResumeKeySkill[]
 ) {
   const root = new THREE.Group();
   root.position.set(0, yPos, zPos);
@@ -1099,12 +1106,12 @@ export function buildIrisChamber(
   const disposables: { dispose: () => void }[] = [];
   const rng = createRng(3303);
 
-  // Subtle deep-space starfield surrounding the Solar Vortex
-  const starCount = 320;
+  // Subtle deep-space starfield surrounding the Solar Vortex (low opacity, crisp)
+  const starCount = 260;
   const starGeo = new THREE.BufferGeometry();
   const starPos = new Float32Array(starCount * 3);
   for (let i = 0; i < starCount; i++) {
-    const r = 4.2 + rng() * 14.0;
+    const r = 4.6 + rng() * 14.0;
     const theta = rng() * Math.PI * 2;
     const phi = Math.acos(2 * rng() - 1);
     starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
@@ -1113,10 +1120,10 @@ export function buildIrisChamber(
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
   const starMat = new THREE.PointsMaterial({
-    color: 0xd8ffff,
-    size: 0.055,
+    color: 0xb8c8d8,
+    size: 0.045,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.42,
     depthWrite: false,
   });
   root.add(new THREE.Points(starGeo, starMat));
@@ -1128,65 +1135,68 @@ export function buildIrisChamber(
   root.add(solarSystemGroup);
 
   const sunZ = 1.95; // Sun leads at the front tip (+Z) of the helical trajectory
-  const trailLength = 8.4; // Sweeps backwards (-Z) into deep space
+  const trailLength = 8.4;
 
-  // 1. Central Leading Sun Core + Multi-layer Corona + Forward Wake Beam
+  // 1. Central Leading Sun Core (warm golden-amber, softly luminous without blinding glare)
   const sunGroup = new THREE.Group();
   sunGroup.position.set(0, 0, sunZ);
   solarSystemGroup.add(sunGroup);
 
-  const sunGeo = new THREE.SphereGeometry(0.42, 28, 22);
+  const sunGeo = new THREE.SphereGeometry(0.38, 28, 22);
   const sunMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+    color: 0xffefd2,
   });
   sunGroup.add(new THREE.Mesh(sunGeo, sunMat));
 
-  const sunShellGeo = new THREE.SphereGeometry(0.5, 24, 18);
+  const sunShellGeo = new THREE.SphereGeometry(0.45, 24, 18);
   const sunShellMat = new THREE.MeshBasicMaterial({
-    color: 0x00ffff,
+    color: 0xff9e2c,
     transparent: true,
-    opacity: 0.34,
+    opacity: 0.26,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
   sunGroup.add(new THREE.Mesh(sunShellGeo, sunShellMat));
 
   const sunAuraMat = new THREE.SpriteMaterial({
-    map: glowTex,
-    color: 0xd8ffff,
+    map: neutralGlowTex,
+    color: 0xffaa3b,
     transparent: true,
-    opacity: 0.95,
+    opacity: 0.48,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
   const sunAura = new THREE.Sprite(sunAuraMat);
-  sunAura.scale.set(2.8, 2.8, 1);
+  sunAura.scale.set(1.9, 1.9, 1);
   sunGroup.add(sunAura);
 
   const sunOuterGlowMat = new THREE.SpriteMaterial({
-    map: glowTex,
-    color: 0x00ffff,
+    map: neutralGlowTex,
+    color: 0xff7b1c,
     transparent: true,
-    opacity: 0.45,
+    opacity: 0.18,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
   const sunOuterGlow = new THREE.Sprite(sunOuterGlowMat);
-  sunOuterGlow.scale.set(5.2, 5.2, 1);
+  sunOuterGlow.scale.set(3.4, 3.4, 1);
   sunGroup.add(sunOuterGlow);
 
-  // Bright luminous central axis spine trailing behind the Sun (like reference sun-beam)
-  const spineGeo = new THREE.CylinderGeometry(0.055, 0.004, trailLength * 0.92, 12);
+  // Local PointLight from the Sun naturally illuminates all colored skill planets
+  const sunPointLight = new THREE.PointLight(0xffd28a, 7.5, 22, 1.3);
+  sunGroup.add(sunPointLight);
+
+  // Restrained central trajectory beam trailing behind the Sun
+  const spineGeo = new THREE.CylinderGeometry(0.036, 0.004, trailLength * 0.9, 10);
   spineGeo.rotateX(Math.PI / 2);
   const spineMat = new THREE.MeshBasicMaterial({
-    color: 0xd8ffff,
+    color: 0xffb347,
     transparent: true,
-    opacity: 0.72,
-    blending: THREE.AdditiveBlending,
+    opacity: 0.34,
     depthWrite: false,
   });
   const sunSpine = new THREE.Mesh(spineGeo, spineMat);
-  sunSpine.position.set(0, 0, sunZ - trailLength * 0.46);
+  sunSpine.position.set(0, 0, sunZ - trailLength * 0.45);
   solarSystemGroup.add(sunSpine);
 
   disposables.push(
@@ -1202,10 +1212,9 @@ export function buildIrisChamber(
 
   // Subtle translucent vortex guide rings perpendicular to trajectory
   const guideRingMat = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
+    color: 0x4b5e73,
     transparent: true,
-    opacity: 0.14,
-    blending: THREE.AdditiveBlending,
+    opacity: 0.22,
     depthWrite: false,
   });
   [1.45, 2.55, 3.65].forEach((r, idx) => {
@@ -1217,14 +1226,18 @@ export function buildIrisChamber(
     }
     const g = new THREE.BufferGeometry().setFromPoints(pts);
     const loop = new THREE.Line(g, guideRingMat);
-    loop.position.z = sunZ - 0.5 - idx * 1.45;
+    loop.position.z = sunZ - 0.55 - idx * 1.45;
     solarSystemGroup.add(loop);
     disposables.push(g);
   });
   disposables.push(guideRingMat);
 
-  // 2. Orbiting Planets + Dynamic Helical Vortex Ribbon Trails
+  // 2. Dynamic Key-Skill Orbiting Planets & Non-Glaring Helical Trails
+  const effectiveSkills: ResumeKeySkill[] =
+    keySkills.length > 0 ? keySkills : [{ name: 'SYSTEMS', color: '#00D4E8' }];
+
   interface HelicalPlanetSpec {
+    skill: ResumeKeySkill;
     orbitR: number;
     planetR: number;
     speed: number;
@@ -1233,164 +1246,131 @@ export function buildIrisChamber(
     leadZ: number;
     tailLen: number;
     tiltY: number;
-    color: number;
-    trailHex: number;
-    hasRing?: boolean;
+    hasRing: boolean;
   }
 
-  const planetSpecs: HelicalPlanetSpec[] = [
-    {
-      orbitR: 0.85,
-      planetR: 0.085,
-      speed: 1.15,
-      phase: 0.4,
-      turns: 2.3,
-      leadZ: sunZ - 0.25,
-      tailLen: 6.0,
-      tiltY: 0.94,
-      color: 0xffffff,
-      trailHex: 0xd8ffff,
-    },
-    {
-      orbitR: 1.38,
-      planetR: 0.125,
-      speed: 0.82,
-      phase: 2.1,
-      turns: 1.95,
-      leadZ: sunZ - 0.55,
-      tailLen: 6.9,
-      tiltY: 0.96,
-      color: 0x00ffff,
-      trailHex: 0x00ffff,
-    },
-    {
-      orbitR: 1.92,
-      planetR: 0.145,
-      speed: 0.62,
-      phase: 4.3,
-      turns: 1.65,
-      leadZ: sunZ - 0.85,
-      tailLen: 7.4,
-      tiltY: 0.9,
-      color: 0xd8ffff,
-      trailHex: 0x00ffff,
-    },
-    {
-      orbitR: 2.48,
-      planetR: 0.11,
-      speed: 0.49,
-      phase: 1.2,
-      turns: 1.45,
-      leadZ: sunZ - 1.25,
-      tailLen: 7.8,
-      tiltY: 0.98,
-      color: 0xffffff,
-      trailHex: 0x8a929a,
-    },
-    {
-      orbitR: 3.05,
-      planetR: 0.19,
-      speed: 0.36,
-      phase: 3.4,
-      turns: 1.25,
-      leadZ: sunZ - 1.6,
-      tailLen: 8.2,
-      tiltY: 0.92,
-      color: 0x00ffff,
-      trailHex: 0x00ffff,
-      hasRing: true,
-    },
-    {
-      orbitR: 3.55,
-      planetR: 0.135,
-      speed: 0.28,
-      phase: 5.5,
-      turns: 1.1,
-      leadZ: sunZ - 1.9,
-      tailLen: 8.4,
-      tiltY: 0.88,
-      color: 0xd8ffff,
-      trailHex: 0xd8ffff,
-    },
-    {
-      orbitR: 4.02,
-      planetR: 0.115,
-      speed: 0.22,
-      phase: 0.95,
-      turns: 0.95,
-      leadZ: sunZ - 2.25,
-      tailLen: 8.5,
-      tiltY: 0.95,
-      color: 0x00ffff,
-      trailHex: 0x00ffff,
-    },
-  ];
-
-  const TRAIL_SEGS = 110;
-  const planetSphereGeo = new THREE.SphereGeometry(1, 20, 16);
-  const satRingGeo = new THREE.RingGeometry(1.48, 2.08, 40);
-  satRingGeo.rotateX(Math.PI * 0.42);
-  const satRingMat = new THREE.MeshBasicMaterial({
-    color: 0xd8ffff,
-    transparent: true,
-    opacity: 0.72,
-    side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
+  const skillCount = effectiveSkills.length;
+  const planetSpecs: HelicalPlanetSpec[] = effectiveSkills.map((skill, idx) => {
+    const ratio = skillCount === 1 ? 0.45 : idx / (skillCount - 1);
+    const orbitR = skillCount === 1 ? 1.95 : 0.92 + ratio * 3.05;
+    // Slight deterministic organic planet size variation
+    const planetR = 0.13 + ((idx * 37) % 11) * 0.008;
+    const speed = 0.72 - ratio * 0.52;
+    const phase = (idx * 2.39996) % (Math.PI * 2); // Golden-angle spacing works cleanly for any count
+    const turns = 2.05 - ratio * 1.05;
+    const leadZ = sunZ - 0.35 - ratio * 2.1;
+    const tailLen = 6.2 + ratio * 2.3;
+    const tiltY = 0.9 + ((idx % 3) - 1) * 0.04;
+    const hasRing = skillCount >= 4 && idx % 4 === 3;
+    return {
+      skill,
+      orbitR,
+      planetR,
+      speed,
+      phase,
+      turns,
+      leadZ,
+      tailLen,
+      tiltY,
+      hasRing,
+    };
   });
-  disposables.push(planetSphereGeo, satRingGeo, satRingMat);
+
+  const TRAIL_SEGS = 100;
+  const planetSphereGeo = new THREE.SphereGeometry(1, 22, 18);
+  const satRingGeo = new THREE.RingGeometry(1.45, 2.02, 40);
+  satRingGeo.rotateX(Math.PI * 0.42);
+  disposables.push(planetSphereGeo, satRingGeo);
 
   interface RuntimePlanet {
     spec: HelicalPlanetSpec;
     headGroup: THREE.Group;
+    labelSprite: THREE.Sprite;
+    labelMat: THREE.SpriteMaterial;
     trailPosAttr: THREE.BufferAttribute;
     trailLine: THREE.Line;
   }
 
   const runtimePlanets: RuntimePlanet[] = [];
-  const headColor = new THREE.Color();
-  const tailColor = new THREE.Color(0x0b171d);
+  const planetColor = new THREE.Color();
+  const liftedTrailColor = new THREE.Color();
+  const tailBgColor = new THREE.Color(0x121417);
 
   planetSpecs.forEach((spec) => {
+    planetColor.set(spec.skill.color);
+    // Keep very dark colors (e.g. dark blue) crisp & clearly legible on dark graphite
+    liftedTrailColor.copy(planetColor).lerp(new THREE.Color(0xffffff), 0.16);
+
     const headGroup = new THREE.Group();
-    const pMat = new THREE.MeshBasicMaterial({ color: spec.color });
+    const pMat = new THREE.MeshStandardMaterial({
+      color: planetColor.clone(),
+      emissive: planetColor.clone(),
+      emissiveIntensity: 0.28,
+      roughness: 0.42,
+      metalness: 0.22,
+    });
     const pMesh = new THREE.Mesh(planetSphereGeo, pMat);
     pMesh.scale.setScalar(spec.planetR);
     headGroup.add(pMesh);
 
+    // Restrained soft colored halo around each planet (zero neon blowout)
     const glowMat = new THREE.SpriteMaterial({
-      map: glowTex,
-      color: spec.trailHex,
+      map: neutralGlowTex,
+      color: liftedTrailColor.clone(),
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.34,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     const glowSprite = new THREE.Sprite(glowMat);
-    glowSprite.scale.setScalar(spec.planetR * 7.5);
+    glowSprite.scale.setScalar(spec.planetR * 4.2);
     headGroup.add(glowSprite);
 
     if (spec.hasRing) {
-      const ring = new THREE.Mesh(satRingGeo, satRingMat);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: liftedTrailColor.clone(),
+        transparent: true,
+        opacity: 0.48,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const ring = new THREE.Mesh(satRingGeo, ringMat);
       ring.scale.setScalar(spec.planetR);
       ring.rotation.y = 0.45;
       headGroup.add(ring);
+      disposables.push(ringMat);
     }
 
-    solarSystemGroup.add(headGroup);
-    disposables.push(pMat, glowMat);
+    // Crisp Floating Key Skill Label Sprite attached above each planet
+    const { tex: labelTex, aspect } = createSkillPlanetLabelTexture(
+      spec.skill.name,
+      spec.skill.color
+    );
+    const labelMat = new THREE.SpriteMaterial({
+      map: labelTex,
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false,
+    });
+    const labelSprite = new THREE.Sprite(labelMat);
+    const labelH = 0.26;
+    labelSprite.scale.set(labelH * aspect, labelH, 1);
+    labelSprite.position.set(0, spec.planetR + 0.24, 0);
+    headGroup.add(labelSprite);
 
-    // Tapered helical wake vertices & vertex-color fade (bright at planet head -> obsidian cyan tail)
+    solarSystemGroup.add(headGroup);
+    disposables.push(pMat, glowMat, labelTex, labelMat);
+
+    // Tapered helical wake (NormalBlending so overlapping trails stay clean & true-colored)
     const positions = new Float32Array((TRAIL_SEGS + 1) * 3);
     const colors = new Float32Array((TRAIL_SEGS + 1) * 3);
-    headColor.setHex(spec.trailHex);
 
     for (let k = 0; k <= TRAIL_SEGS; k++) {
       const frac = k / TRAIL_SEGS;
-      const fade = Math.pow(1 - frac, 1.55);
-      colors[k * 3] = THREE.MathUtils.lerp(tailColor.r, headColor.r, fade);
-      colors[k * 3 + 1] = THREE.MathUtils.lerp(tailColor.g, headColor.g, fade);
-      colors[k * 3 + 2] = THREE.MathUtils.lerp(tailColor.b, headColor.b, fade);
+      const fade = Math.pow(1 - frac, 1.4);
+      colors[k * 3] = THREE.MathUtils.lerp(tailBgColor.r, liftedTrailColor.r, fade);
+      colors[k * 3 + 1] = THREE.MathUtils.lerp(tailBgColor.g, liftedTrailColor.g, fade);
+      colors[k * 3 + 2] = THREE.MathUtils.lerp(tailBgColor.b, liftedTrailColor.b, fade);
     }
 
     const trailGeo = new THREE.BufferGeometry();
@@ -1402,8 +1382,7 @@ export function buildIrisChamber(
     const trailMat = new THREE.LineBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: 0.92,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.74,
       depthWrite: false,
     });
     const trailLine = new THREE.Line(trailGeo, trailMat);
@@ -1411,31 +1390,50 @@ export function buildIrisChamber(
     solarSystemGroup.add(trailLine);
 
     disposables.push(trailGeo, trailMat);
-    runtimePlanets.push({ spec, headGroup, trailPosAttr, trailLine });
+    runtimePlanets.push({
+      spec,
+      headGroup,
+      labelSprite,
+      labelMat,
+      trailPosAttr,
+      trailLine,
+    });
   });
+
+  // Precomputed world position of the Sun center (initialized immediately and refreshed each frame)
+  const sunWorldPos = new THREE.Vector3();
+  solarSystemGroup.updateMatrixWorld(true);
+  sunGroup.getWorldPosition(sunWorldPos);
 
   return {
     root,
+    getSunWorldPosition: (out: THREE.Vector3) => out.copy(sunWorldPos),
     update: (elapsed: number, pointerX: number, pointerY: number, flyProgress: number) => {
-      // Gentle responsive parallax & zoom expansion as camera plunges toward CH.04
-      solarSystemGroup.rotation.y = -0.38 + pointerX * 0.16;
-      solarSystemGroup.rotation.x = 0.32 + pointerY * 0.12;
-      solarSystemGroup.scale.setScalar(1.0 + flyProgress * 0.42);
+      // Gentle responsive parallax that centers cleanly as we fly straight into the Sun
+      const tiltDamp = 1 - THREE.MathUtils.smoothstep(flyProgress, 0.15, 0.75);
+      solarSystemGroup.rotation.y = -0.38 + pointerX * 0.14 * tiltDamp;
+      solarSystemGroup.rotation.x = 0.32 + pointerY * 0.1 * tiltDamp;
+      solarSystemGroup.scale.setScalar(1.0 + flyProgress * 0.25);
 
-      const sunPulse = 2.75 + Math.sin(elapsed * 2.2) * 0.18 + flyProgress * 1.4;
+      solarSystemGroup.updateMatrixWorld(true);
+      sunGroup.getWorldPosition(sunWorldPos);
+
+      const sunPulse = 1.85 + Math.sin(elapsed * 2.0) * 0.12 + flyProgress * 0.9;
       sunAura.scale.set(sunPulse, sunPulse, 1);
-      sunOuterGlow.scale.set(sunPulse * 1.85, sunPulse * 1.85, 1);
+      sunOuterGlow.scale.set(sunPulse * 1.75, sunPulse * 1.75, 1);
+
+      const labelFade = 1 - THREE.MathUtils.smoothstep(flyProgress, 0.18, 0.55);
 
       for (let i = 0; i < runtimePlanets.length; i++) {
         const rp = runtimePlanets[i];
         const sp = rp.spec;
-        const headAngle = sp.phase + elapsed * sp.speed + flyProgress * 1.1;
+        const headAngle = sp.phase + elapsed * sp.speed + flyProgress * 0.85;
         const arr = rp.trailPosAttr.array as Float32Array;
+        rp.labelMat.opacity = 0.92 * labelFade;
 
         for (let k = 0; k <= TRAIL_SEGS; k++) {
           const frac = k / TRAIL_SEGS;
           const a = headAngle - frac * sp.turns * Math.PI * 2;
-          // Helical funnel gently tightens slightly far behind, creating dynamic cosmic perspective
           const radiusScale = 1.0 - frac * 0.18;
           const x = Math.cos(a) * sp.orbitR * radiusScale;
           const y = Math.sin(a) * sp.orbitR * sp.tiltY * radiusScale;

@@ -342,4 +342,77 @@ export function createNeuralMetricSpriteTexture(
   return { tex, aspect: width / height };
 }
 
+/**
+ * Neutral white radial halo texture so sprites tinted any color (orange, dark blue, amber, cyan)
+ * render their true hue without cyan shift and with gentle soft falloff.
+ */
+export function createNeutralGlowTexture(): THREE.CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const half = size / 2;
+
+  const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+  grad.addColorStop(0.0, 'rgba(255, 255, 255, 0.95)');
+  grad.addColorStop(0.24, 'rgba(255, 255, 255, 0.52)');
+  grad.addColorStop(0.58, 'rgba(255, 255, 255, 0.14)');
+  grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * Compact crisp 3D skill label badge for orbiting planets in the CH.03 Helical Solar Vortex.
+ */
+export function createSkillPlanetLabelTexture(
+  label: string,
+  accentHex: string
+): { tex: THREE.CanvasTexture; aspect: number } {
+  const height = 56;
+  const measureCanvas = document.createElement('canvas');
+  const mCtx = measureCanvas.getContext('2d')!;
+  const font = '600 22px "JetBrains Mono", ui-monospace, monospace';
+  mCtx.font = font;
+  const textWidth = Math.ceil(mCtx.measureText(label).width);
+
+  const width = Math.max(150, textWidth + 62);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.fillStyle = 'rgba(11, 15, 21, 0.84)';
+  ctx.fillRect(6, 8, width - 12, height - 16);
+
+  ctx.strokeStyle = accentHex;
+  ctx.globalAlpha = 0.72;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(6, 8, width - 12, height - 16);
+
+  ctx.globalAlpha = 1.0;
+  ctx.fillStyle = accentHex;
+  ctx.fillRect(16, height / 2 - 4, 8, 8);
+
+  ctx.font = font;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#F1F5F9';
+  ctx.fillText(label, 34, height / 2 + 1);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return { tex, aspect: width / height };
+}
+
 
