@@ -93,29 +93,41 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
 
   const cardWidthClass =
     activeCard === 'work'
-      ? 'max-w-3xl'
+      ? 'w-full md:w-[48%] lg:w-[45%] max-w-[560px]'
       : activeCard === 'about'
-        ? 'max-w-xl'
-        : 'max-w-lg';
+        ? 'w-full max-w-xl'
+        : 'w-full max-w-lg';
+
+  const wrapperAlignClass =
+    activeCard === 'work'
+      ? 'justify-center md:justify-end md:pr-8 lg:pr-12'
+      : 'justify-center';
 
   const animStyle: React.CSSProperties = {
     opacity: revealAmount,
-    transform: `translate3d(0, ${((1 - enterT) * 16 - exitT * 14).toFixed(1)}px, 0) scale(${(
-      0.95 +
-      0.05 * enterT +
-      0.025 * exitT
-    ).toFixed(4)})`,
+    transform:
+      activeCard === 'work'
+        ? `translate3d(${((1 - enterT) * 22 - exitT * 18).toFixed(1)}px, 0, 0) scale(${(
+            0.96 +
+            0.04 * enterT +
+            0.015 * exitT
+          ).toFixed(4)})`
+        : `translate3d(0, ${((1 - enterT) * 16 - exitT * 14).toFixed(1)}px, 0) scale(${(
+            0.95 +
+            0.05 * enterT +
+            0.025 * exitT
+          ).toFixed(4)})`,
     willChange: 'transform, opacity',
   };
 
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center p-4 sm:p-6"
+      className={`pointer-events-none fixed inset-0 z-30 flex items-center ${wrapperAlignClass} p-4 sm:p-6`}
     >
       <div
         style={animStyle}
-        className={`pointer-events-none relative w-full ${cardWidthClass} border border-[#00FFFF]/35 bg-[#080C12]/84 backdrop-blur-md p-5 md:p-6 shadow-[0_14px_48px_rgba(0,0,0,0.78)]`}
+        className={`pointer-events-none relative ${cardWidthClass} border border-[#00FFFF]/35 bg-[#080C12]/84 backdrop-blur-md p-5 md:p-6 shadow-[0_14px_48px_rgba(0,0,0,0.78)]`}
       >
         {/* Crisp Pure Cyan Corner Reticles */}
         <span aria-hidden="true" className="absolute -top-[1px] -left-[1px] h-3.5 w-3.5 border-t-2 border-l-2 border-[#00FFFF]" />
@@ -189,46 +201,51 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
         )}
 
         {/* ================================================================= */}
-        {/* CH.03 // WORK — Scannable Projects & Experience Side-by-Side      */}
+        {/* CH.03 // WORK — Right-Half Docked Card (3D Figure on Left Half)   */}
         {/* ================================================================= */}
         {activeCard === 'work' && (
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            {/* Left: Featured Systems */}
-            <div className="md:col-span-7 space-y-2.5">
-              <p className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF]">
-                SELECTED SYSTEMS
-              </p>
-              <div className="space-y-2">
+          <div className="space-y-3.5">
+            {/* Selected Systems */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between border-b border-[#8A929A]/25 pb-1.5">
+                <p className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF]">
+                  SELECTED SYSTEMS
+                </p>
+                <span className="font-mono-hud text-[9px] tracking-wider text-[#8A929A]">
+                  CH.03 // WORK
+                </span>
+              </div>
+              <div className="space-y-1.5">
                 {RESUME_DATA.projects.map((proj) => (
                   <div
                     key={proj.id}
-                    className="border border-[#8A929A]/25 bg-[#090D12]/80 px-3 py-2.5 space-y-1"
+                    className="border border-[#8A929A]/25 bg-[#090D12]/80 px-3 py-2 space-y-0.5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-display-hud text-sm font-medium text-[#FFFFFF]">
+                      <span className="font-display-hud text-[13px] font-medium text-[#FFFFFF]">
                         {proj.title}
                       </span>
                       <span className="font-mono-hud text-[10px] text-[#00FFFF] shrink-0">
                         {proj.latency} · {proj.throughput}
                       </span>
                     </div>
-                    <p className="text-[11px] leading-snug text-[#A7B0B8]">{proj.summary}</p>
+                    <p className="text-[11px] leading-snug text-[#B8C2CC]">{proj.summary}</p>
                     <p className="font-mono-hud text-[9px] text-[#8A929A]">{proj.stack}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Right: Career Timeline */}
-            <div className="md:col-span-5 space-y-2.5">
-              <p className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF]">
+            {/* Career Timeline */}
+            <div className="space-y-2">
+              <p className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF] border-b border-[#8A929A]/25 pb-1.5">
                 EXPERIENCE
               </p>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {RESUME_DATA.experience.map((exp) => (
                   <div
                     key={exp.company}
-                    className="border border-[#8A929A]/25 bg-[#090D12]/80 px-3 py-2.5 space-y-0.5"
+                    className="border border-[#8A929A]/25 bg-[#090D12]/80 px-3 py-2 space-y-0.5"
                   >
                     <div className="flex items-center justify-between gap-2 font-mono-hud text-[9px]">
                       <span className="text-[#00FFFF]">{exp.period}</span>
@@ -237,7 +254,7 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                     <p className="font-display-hud text-xs font-medium text-[#FFFFFF]">
                       {exp.role}
                     </p>
-                    <p className="text-[11px] leading-snug text-[#A7B0B8]">{exp.detail}</p>
+                    <p className="text-[11px] leading-snug text-[#B8C2CC]">{exp.detail}</p>
                   </div>
                 ))}
               </div>

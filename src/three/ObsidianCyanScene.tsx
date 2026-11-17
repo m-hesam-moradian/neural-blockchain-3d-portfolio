@@ -62,8 +62,6 @@ function detectSoftwareWebGL(): boolean {
 function sampleDetailedFlight(
   progress: number,
   rideCurve: THREE.CatmullRomCurve3,
-  firstNeuronWorld: THREE.Vector3,
-  secondNeuronWorld: THREE.Vector3,
   lastNeuronWorld: THREE.Vector3,
   outPos: THREE.Vector3,
   outTarget: THREE.Vector3
@@ -100,21 +98,21 @@ function sampleDetailedFlight(
   const frontWallFade = THREE.MathUtils.smoothstep(p, 0.04, 0.21);
   const neuralRevealProgress = THREE.MathUtils.smoothstep(p, 0.04, 0.20);
 
-  // Smoothly pause neural simulation while About Me card is displayed [0.30 .. 0.47]
+  // Smoothly pause neural simulation while About Me card is displayed [0.30 .. 0.46]
   const pauseIn = THREE.MathUtils.smoothstep(p, 0.30, 0.34);
-  const pauseOut = THREE.MathUtils.smoothstep(p, 0.43, 0.47);
+  const pauseOut = THREE.MathUtils.smoothstep(p, 0.42, 0.46);
   const neuralPauseFactor = pauseIn * (1 - pauseOut);
 
-  // Pure Cyan Teleport Flash centered right at p = 0.578 inside the Last Neuron core
+  // Pure Cyan Teleport Flash centered smoothly at p = 0.592 inside Last Neuron nucleus
   let teleportFlash = 0;
-  if (p >= 0.558 && p <= 0.602) {
-    if (p < 0.578) {
-      teleportFlash = THREE.MathUtils.smoothstep(p, 0.558, 0.578);
+  if (p >= 0.572 && p <= 0.614) {
+    if (p < 0.592) {
+      teleportFlash = THREE.MathUtils.smoothstep(p, 0.572, 0.592);
     } else {
-      teleportFlash = 1 - THREE.MathUtils.smoothstep(p, 0.578, 0.602);
+      teleportFlash = 1 - THREE.MathUtils.smoothstep(p, 0.592, 0.614);
     }
   }
-  const teleported = p >= 0.578;
+  const teleported = p >= 0.592;
 
   // Segment 1: CH.01 Genesis Blocks (0.00) -> Explode & enter inside Chosen Block (0.21)
   if (p <= 0.21) {
@@ -174,9 +172,9 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 2B: Neural Net Pauses + About Me Blurred Glass Card Hold (0.30 -> 0.47)
-  if (p <= 0.47) {
-    const u = (p - 0.30) / 0.17;
+  // Segment 2B: Neural Net Pauses + About Me Blurred Glass Card Hold (0.30 -> 0.46)
+  if (p <= 0.46) {
+    const u = (p - 0.30) / 0.16;
     const eased = u * u * (3 - 2 * u);
     _vA.set(0, 1.56, 0.45);
     _vB.set(0, 1.56, 0.42);
@@ -200,48 +198,29 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 2C: Fly to First Neuron (0.47 -> 0.505)
-  if (p <= 0.505) {
-    const u = (p - 0.47) / 0.035;
-    const eased = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+  // Segment 2C: Unified Sweeping Spline Glide from Hold -> First Neuron -> 3 Neurons -> Inside Last Neuron (0.46 -> 0.592)
+  if (p < 0.592) {
+    const u = THREE.MathUtils.clamp((p - 0.46) / (0.592 - 0.46), 0, 1);
+    // Gentle ease-in & smooth steady motion through neurons (no jerky acceleration!)
+    const rideT = u < 0.2 ? 0.5 * (u / 0.2) * u : u;
+    const clampedT = THREE.MathUtils.clamp(rideT, 0, 1);
+    rideCurve.getPointAt(clampedT, outPos);
 
-    _vA.set(0, 1.56, 0.42);
-    outPos.lerpVectors(_vA, firstNeuronWorld, eased);
-
-    _vC.set(0, 1.55, 0);
-    outTarget.lerpVectors(_vC, secondNeuronWorld, eased);
-
-    return {
-      chamberIdx: 1,
-      warpIntensity: 0,
-      teleportFlash: 0,
-      teleported: false,
-      portalFlyProgress: 0,
-      summitExplodeProgress: 1,
-      neuralRevealProgress: 1,
-      neuralPauseFactor: 0,
-      enterNeuronProgress: THREE.MathUtils.smoothstep(u, 0.0, 1.0) * 0.4,
-      horizontalWarp: true,
-      nearPlane: THREE.MathUtils.lerp(0.004, 0.0005, eased),
-      farPlane: THREE.MathUtils.lerp(40, 18, eased),
-      frontWallFade: 1,
-    };
-  }
-
-  // Segment 2D: Ride like Data across Connected Neurons -> Inside Last Neuron -> Teleport (0.505 -> 0.578)
-  if (p < 0.578) {
-    const rideT = THREE.MathUtils.clamp((p - 0.505) / (0.578 - 0.505), 0, 1);
-    rideCurve.getPointAt(rideT, outPos);
-    if (rideT < 0.9) {
-      rideCurve.getPointAt(Math.min(1, rideT + 0.08), outTarget);
+    if (clampedT < 0.88) {
+      rideCurve.getPointAt(Math.min(1, clampedT + 0.08), _vD);
     } else {
-      // Look smoothly deep into the glowing Last Neuron nucleus right as we teleport
-      const endBlend = (rideT - 0.9) / 0.1;
+      const endBlend = (clampedT - 0.88) / 0.12;
       rideCurve.getPointAt(1.0, _vC);
-      _vD.copy(lastNeuronWorld).add(_vA.set(0.04, 0, 0));
-      outTarget.lerpVectors(_vC, _vD, endBlend);
+      _vA.copy(lastNeuronWorld).add(_vB.set(0.045, 0, 0));
+      _vD.lerpVectors(_vC, _vA, endBlend);
     }
 
+    // Smoothly pan view onto the glowing neuron path during first 24% so there is zero sudden head-turn
+    const lookPan = THREE.MathUtils.smoothstep(u, 0.0, 0.24);
+    _vC.set(0, 1.55, 0);
+    outTarget.lerpVectors(_vC, _vD, lookPan);
+
+    const nearEase = THREE.MathUtils.smoothstep(u, 0.05, 0.35);
     return {
       chamberIdx: 1,
       warpIntensity: 0,
@@ -251,24 +230,23 @@ function sampleDetailedFlight(
       summitExplodeProgress: 1,
       neuralRevealProgress: 1,
       neuralPauseFactor: 0,
-      enterNeuronProgress: 0.4 + rideT * 0.6,
+      enterNeuronProgress: u,
       horizontalWarp: true,
-      nearPlane: 0.0005,
-      farPlane: 16,
+      nearPlane: THREE.MathUtils.lerp(0.004, 0.0005, nearEase),
+      farPlane: THREE.MathUtils.lerp(40, 16, nearEase),
       frontWallFade: 1,
     };
   }
 
-  // Segment 2E: Teleported out of Last Neuron cleanly to CH.03 Iris Arrival Approach (0.578 -> 0.72)
+  // Segment 2D: Teleported cleanly from Last Neuron to CH.03 Left-Framed Iris Approach (0.592 -> 0.72)
   if (p <= DETAILED_CHAMBERS[2].scrollAt) {
-    const u = (p - 0.578) / (DETAILED_CHAMBERS[2].scrollAt - 0.578);
+    const u = (p - 0.592) / (DETAILED_CHAMBERS[2].scrollAt - 0.592);
     const eased = 1 - Math.pow(1 - u, 2.5);
-    // Materialize already in clean orbital approach above Iris Portal (never clipping through any box!)
-    _vA.set(0, -11.5, -4.0);
-    _vB.set(...DETAILED_CHAMBERS[2].camPos); // (0, -14.8, -6.0)
+    _vA.set(2.2, -12.6, -3.5);
+    _vB.set(...DETAILED_CHAMBERS[2].camPos); // [2.2, -16.4, -5.0] -> places Iris cleanly in LEFT HALF
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(0, -24.0, -12.0);
+    _vC.set(2.85, -23.8, -12.0);
     _vD.set(...DETAILED_CHAMBERS[2].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
@@ -289,20 +267,20 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 3: CH.03 Iris (0.70) -> Work Showcase Hold -> Plunge through 4-ring Portal -> CH.04 Pedestal (1.00)
+  // Segment 3: CH.03 Iris Left-Half Showcase (0.72) -> Center & Plunge through Portal -> CH.04 Pedestal (1.00)
   const u = (p - DETAILED_CHAMBERS[2].scrollAt) / (1.0 - DETAILED_CHAMBERS[2].scrollAt);
-  if (u < 0.25) {
-    // Gentle drift toward Iris portal while CH.03 Work card is open
-    const t = u / 0.25;
+  if (u < 0.34) {
+    // Hold gently framing 3D Iris on LEFT half while WORK card occupies RIGHT half
+    const t = u / 0.34;
     const eased = t * t * (3 - 2 * t);
-    portalFlyProgress = eased * 0.16;
+    portalFlyProgress = eased * 0.1;
 
-    _vA.set(...DETAILED_CHAMBERS[2].camPos);
-    _vB.set(0, -17.2, -7.6);
+    _vA.set(...DETAILED_CHAMBERS[2].camPos); // [2.2, -16.4, -5.0]
+    _vB.set(2.1, -17.2, -5.6);
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(...DETAILED_CHAMBERS[2].camTarget);
-    _vD.set(0, -24.0, -12.0);
+    _vC.set(...DETAILED_CHAMBERS[2].camTarget); // [2.85, -23.8, -12.0]
+    _vD.set(2.65, -24.0, -12.0);
     outTarget.lerpVectors(_vC, _vD, eased);
 
     return {
@@ -320,23 +298,23 @@ function sampleDetailedFlight(
       farPlane: 180,
       frontWallFade: 1,
     };
-  } else if (u < 0.65) {
-    // Plunge cleanly through the Iris portal right as CH.03 Work card fades away
-    const t = (u - 0.25) / 0.4;
+  } else if (u < 0.68) {
+    // As WORK card fades out, glide smoothly back to x=0 and plunge dead-center through the Iris portal
+    const t = (u - 0.34) / 0.34;
     const eased = t * t * (3 - 2 * t);
-    portalFlyProgress = 0.16 + eased * 0.84;
-    warpIntensity = THREE.MathUtils.smoothstep(t, 0.18, 1.0) * 0.72;
+    portalFlyProgress = 0.1 + eased * 0.9;
+    warpIntensity = THREE.MathUtils.smoothstep(t, 0.2, 1.0) * 0.72;
 
-    _vA.set(0, -17.2, -7.6);
+    _vA.set(2.1, -17.2, -5.6);
     _vB.set(0, -31.5, -11.5);
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(0, -24.0, -12.0);
+    _vC.set(2.65, -24.0, -12.0);
     _vD.set(0, -48.0, -12.0);
     outTarget.lerpVectors(_vC, _vD, eased);
 
     return {
-      chamberIdx: u < 0.45 ? 2 : 3,
+      chamberIdx: u < 0.5 ? 2 : 3,
       warpIntensity,
       teleportFlash: 0,
       teleported: true,
@@ -351,7 +329,7 @@ function sampleDetailedFlight(
       frontWallFade: 1,
     };
   } else {
-    const t = (u - 0.65) / 0.35;
+    const t = (u - 0.68) / 0.32;
     const eased = 1 - Math.pow(1 - t, 3);
     portalFlyProgress = 1;
     warpIntensity = Math.max(0, 1 - t * 2.4) * 0.72;
@@ -517,14 +495,26 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const driftChamber = buildDriftChamber(glowTex);
     summitChamber.chosenAnchor.add(driftChamber.root);
 
-    // Transform local neuron ride waypoints into exact world coordinates inside Chosen Block (scale 0.026, center y=1.55)
+    // Transform local neuron ride waypoints into a unified sweeping CatmullRomCurve3 starting right at the hold pose
     const worldWaypoints = driftChamber.rideWaypoints.map(
       (lp) => new THREE.Vector3(lp.x * 0.026, 1.55 + lp.y * 0.026, lp.z * 0.026)
     );
-    const rideCurve = new THREE.CatmullRomCurve3(worldWaypoints, false, 'centripetal', 0.35);
     const firstNeuronWorld = worldWaypoints[0];
-    const secondNeuronWorld = worldWaypoints[1] ?? worldWaypoints[0];
     const lastNeuronWorld = worldWaypoints[worldWaypoints.length - 1];
+    const rideCurve = new THREE.CatmullRomCurve3(
+      [
+        new THREE.Vector3(0, 1.56, 0.42),
+        new THREE.Vector3(
+          firstNeuronWorld.x - 0.035,
+          firstNeuronWorld.y + 0.01,
+          firstNeuronWorld.z + 0.15
+        ),
+        ...worldWaypoints,
+      ],
+      false,
+      'centripetal',
+      0.45
+    );
 
     const irisChamber = buildIrisChamber(-24, -12, obsidianTex, glowTex);
     scene.add(irisChamber.root);
@@ -650,7 +640,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     let lastWarp = -1;
     let lastTeleportFlash = -1;
     let lastOrbit = false;
-    let prevTeleported = scrollRef.current >= 0.578;
+    let prevTeleported = scrollRef.current >= 0.592;
+    let smoothScroll = scrollRef.current;
     const clock = new THREE.Clock();
 
     function afterDraw(cb: () => void) {
@@ -683,6 +674,13 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
       const delta = Math.min(clock.getDelta(), 0.08);
       const elapsed = clock.elapsedTime;
 
+      // Damped scroll interpolation turns discrete mouse-wheel notches into liquid motion
+      if (Math.abs(scrollRef.current - smoothScroll) > 0.22) {
+        smoothScroll = scrollRef.current;
+      } else {
+        smoothScroll = THREE.MathUtils.damp(smoothScroll, scrollRef.current, 4.4, delta);
+      }
+
       const pAlpha = 1 - Math.exp(-6.5 * delta);
       pointerSmooth.x = THREE.MathUtils.lerp(pointerSmooth.x, pointerTarget.x, pAlpha);
       pointerSmooth.y = THREE.MathUtils.lerp(pointerSmooth.y, pointerTarget.y, pAlpha);
@@ -702,10 +700,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         farPlane,
         frontWallFade,
       } = sampleDetailedFlight(
-        scrollRef.current,
+        smoothScroll,
         rideCurve,
-        firstNeuronWorld,
-        secondNeuronWorld,
         lastNeuronWorld,
         _camGoalPos,
         _camGoalTarget
@@ -735,8 +731,8 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
         controls.target.copy(_camGoalTarget);
         userOrbitingRef.current = false;
       } else {
-        const nextNear = THREE.MathUtils.damp(camera.near, nearPlane, 10, delta);
-        const nextFar = THREE.MathUtils.damp(camera.far, farPlane, 10, delta);
+        const nextNear = THREE.MathUtils.damp(camera.near, nearPlane, 8, delta);
+        const nextFar = THREE.MathUtils.damp(camera.far, farPlane, 8, delta);
         if (Math.abs(nextNear - camera.near) > 0.0001 || Math.abs(nextFar - camera.far) > 0.1) {
           camera.near = nextNear;
           camera.far = nextFar;
@@ -750,7 +746,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
           _camGoalPos.x += pointerSmooth.x * 0.72 * parallaxScale;
           _camGoalPos.y += pointerSmooth.y * 0.42 * parallaxScale;
 
-          const damp = enterNeuronProgress > 0.05 ? 9.5 : 4.8;
+          const damp = enterNeuronProgress > 0.05 ? 5.2 : 4.2;
           camera.position.x = THREE.MathUtils.damp(camera.position.x, _camGoalPos.x, damp, delta);
           camera.position.y = THREE.MathUtils.damp(camera.position.y, _camGoalPos.y, damp, delta);
           camera.position.z = THREE.MathUtils.damp(camera.position.z, _camGoalPos.z, damp, delta);

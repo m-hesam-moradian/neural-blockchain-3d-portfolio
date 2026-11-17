@@ -26,10 +26,10 @@ interface ScrollCardState {
 }
 
 function getScrollCardState(progress: number): ScrollCardState {
-  // CH.02 // ABOUT ME (unobstructed neural viewing 0.21..0.30, then pauses & card opens 0.30..0.47)
-  if (progress >= 0.30 && progress <= 0.47) {
-    const enterT = smoothstep(0.30, 0.35, progress);
-    const exitT = smoothstep(0.425, 0.47, progress);
+  // CH.02 // ABOUT ME (unobstructed neural viewing 0.21..0.30, then pauses & card opens 0.30..0.46)
+  if (progress >= 0.30 && progress <= 0.46) {
+    const enterT = smoothstep(0.30, 0.34, progress);
+    const exitT = smoothstep(0.42, 0.46, progress);
     return {
       activeCard: 'about',
       revealAmount: enterT * (1 - exitT),
@@ -38,10 +38,10 @@ function getScrollCardState(progress: number): ScrollCardState {
     };
   }
 
-  // CH.03 // WORK (enters 0.66->0.71, holds, fades out 0.79->0.85 right before Iris plunge)
-  if (progress >= 0.66 && progress <= 0.85) {
-    const enterT = smoothstep(0.66, 0.71, progress);
-    const exitT = smoothstep(0.79, 0.85, progress);
+  // CH.03 // WORK (enters 0.65->0.70, holds on right half while 3D Iris sits left 0.70..0.785, fades out 0.785->0.83)
+  if (progress >= 0.65 && progress <= 0.83) {
+    const enterT = smoothstep(0.65, 0.70, progress);
+    const exitT = smoothstep(0.785, 0.83, progress);
     return {
       activeCard: 'work',
       revealAmount: enterT * (1 - exitT),
@@ -286,9 +286,9 @@ export default function App() {
         }}
       />
 
-      {/* 1100vh Scroll Driver for unhurried Neural Core & Card pacing */}
+      {/* 1200vh Scroll Driver for liquid neural ride & half-half chapter pacing */}
       <main className="relative z-0 pointer-events-none" aria-hidden="true">
-        <div className="h-[1100vh]" />
+        <div className="h-[1200vh]" />
       </main>
     </div>
   );

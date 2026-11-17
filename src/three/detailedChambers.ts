@@ -910,9 +910,9 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
   disposables.push(rideLineGeo, rideLineMat);
 
   const energyMeta = [
-    { route: pickRandomRoute(), speed: 0.17, offset: 0.05, prevCycle: 0 },
-    { route: pickRandomRoute(), speed: 0.21, offset: 0.39, prevCycle: 0 },
-    { route: pickRandomRoute(), speed: 0.15, offset: 0.72, prevCycle: 0 },
+    { route: pickRandomRoute(), speed: 0.085, offset: 0.05, prevCycle: 0 },
+    { route: pickRandomRoute(), speed: 0.105, offset: 0.39, prevCycle: 0 },
+    { route: pickRandomRoute(), speed: 0.075, offset: 0.72, prevCycle: 0 },
   ];
 
   disposables.push(energyHeadGeo, energyHeadMat, energyAuraGeo, energyAuraMat);
@@ -963,11 +963,11 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
         n.livePos.copy(n.orderedPos);
 
         if (!n.isHero) {
-          const swirlAmp = 0.045 * (1 - enter * 0.85);
-          n.livePos.y += Math.sin(neuralSimTime * 1.1 + n.phase) * swirlAmp;
-          n.livePos.z += Math.cos(neuralSimTime * 0.9 + n.phase) * swirlAmp * 0.65;
+          const swirlAmp = 0.032 * (1 - enter * 0.85);
+          n.livePos.y += Math.sin(neuralSimTime * 0.65 + n.phase) * swirlAmp;
+          n.livePos.z += Math.cos(neuralSimTime * 0.55 + n.phase) * swirlAmp * 0.65;
 
-          const pulse = 1.0 + Math.sin(neuralSimTime * 2.2 + n.phase) * 0.1;
+          const pulse = 1.0 + Math.sin(neuralSimTime * 1.4 + n.phase) * 0.08;
           dummy.position.copy(n.livePos);
           dummy.rotation.set(0, 0, 0);
           dummy.scale.setScalar(1.0);
@@ -978,7 +978,7 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
           dummy.updateMatrix();
           nucleusInstanced.setMatrixAt(i, dummy.matrix);
 
-          dummy.rotation.set(neuralSimTime * 0.45 + n.phase, neuralSimTime * 0.35, n.phase);
+          dummy.rotation.set(neuralSimTime * 0.25 + n.phase, neuralSimTime * 0.2, n.phase);
           dummy.scale.setScalar(1.0);
           dummy.updateMatrix();
           ringInstanced.setMatrixAt(i, dummy.matrix);
