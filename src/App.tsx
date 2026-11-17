@@ -4,24 +4,37 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MultiWorldScene } from './three/MultiWorldScene';
-import { CHAMBERS, PedestalShapeId } from './three/worldBuilders';
+import { Volume2, VolumeX } from 'lucide-react';
+import { HologramInspectorModal } from './components/HologramInspectorModal';
+import {
+  ChamberConfig,
+  DETAILED_CHAMBERS,
+  PLACEHOLDER_PORTFOLIO,
+} from './data/portfolioSections';
+import { PedestalMode } from './three/detailedChambers';
+import { ObsidianCyanScene } from './three/ObsidianCyanScene';
+import { ambientAudio } from './utils/ambientAudio';
+import { ScrambleText } from './utils/scrambleText';
 
-const PEDESTAL_SHAPES: { id: PedestalShapeId; label: string }[] = [
-  { id: 'cube', label: 'CHAIN_CUBE' },
-  { id: 'knot', label: 'KNOT_MESH' },
-  { id: 'helix', label: 'HELIX_CORE' },
+const PEDESTAL_MODES: { id: PedestalMode; label: string }[] = [
+  { id: 'blockchain', label: '01 // BLOCKCHAIN_GRAPH' },
+  { id: 'neural', label: '02 // NEURAL_WAVE' },
+  { id: 'helix', label: '03 // PROTOCOL_HELIX' },
 ];
 
 export default function App() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeChamberIdx, setActiveChamberIdx] = useState(0);
-  const [portalFlash, setPortalFlash] = useState(0);
+  const [warpIntensity, setWarpIntensity] = useState(0);
   const [isOrbiting, setIsOrbiting] = useState(false);
-  const [pedestalShape, setPedestalShape] = useState<PedestalShapeId>('cube');
+  const [pedestalMode, setPedestalMode] = useState<PedestalMode>('blockchain');
   const [cameraResetNonce, setCameraResetNonce] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [hudHidden, setHudHidden] = useState(false);
+  const [inspectedChamber, setInspectedChamber] = useState<ChamberConfig | null>(null);
 
-  const calloutElRef = useRef<HTMLDivElement | null>(null);
+  const calloutPrimaryRef = useRef<HTMLButtonElement | null>(null);
+  const calloutSecondaryRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     let raf = 0;
@@ -46,18 +59,42 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        setHudHidden((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      ambientAudio.dispose();
+    };
+  }, []);
+
   const handleTelemetryUpdate = useCallback(
-    (chamberIdx: number, flash: number, orbiting: boolean) => {
-      setActiveChamberIdx(chamberIdx);
-      setPortalFlash(flash);
+    (chamberIdx: number, warp: number, orbiting: boolean) => {
+      setActiveChamberIdx((prev) => {
+        if (prev !== chamberIdx) ambientAudio.playPulse();
+        return chamberIdx;
+      });
+      setWarpIntensity(warp);
       setIsOrbiting(orbiting);
     },
     []
   );
 
   const handleJumpChamber = useCallback((idx: number) => {
-    const ch = CHAMBERS[idx];
+    const ch = DETAILED_CHAMBERS[idx];
     if (!ch) return;
+    ambientAudio.playPulse();
     const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
     window.scrollTo({
       top: ch.scrollAt * maxScroll,
@@ -66,132 +103,245 @@ export default function App() {
     setCameraResetNonce((n) => n + 1);
   }, []);
 
-  const activeChamber = CHAMBERS[activeChamberIdx] ?? CHAMBERS[0];
+  const handleToggleSound = useCallback(() => {
+    const next = ambientAudio.toggle();
+    setSoundEnabled(next);
+  }, []);
+
+  const activeChamber = DETAILED_CHAMBERS[activeChamberIdx] ?? DETAILED_CHAMBERS[0];
 
   return (
     <div className="relative bg-[#121417] text-[#FFFFFF]">
-      {/* Full-Viewport Multi-Chamber 3D Scene */}
-      <MultiWorldScene
+      {/* Full-Viewport Obsidian & Pure Cyan 3D Engine */}
+      <ObsidianCyanScene
         scrollProgress={scrollProgress}
-        pedestalShape={pedestalShape}
+        pedestalMode={pedestalMode}
         cameraResetNonce={cameraResetNonce}
-        calloutElRef={calloutElRef}
+        calloutPrimaryRef={calloutPrimaryRef}
+        calloutSecondaryRef={calloutSecondaryRef}
         onTelemetryUpdate={handleTelemetryUpdate}
       />
 
-      {/* Portal Fly-Through Cyan Atmospheric Flash */}
+      {/* Portal / Warp Pure Cyan Atmospheric Flash */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-10 bg-[#00FFFF]"
-        style={{ opacity: portalFlash * 0.24, transition: 'opacity 60ms linear' }}
+        style={{ opacity: warpIntensity * 0.14, transition: 'opacity 60ms linear' }}
       />
 
-      {/* Spatial 3D Callout Pin anchored to active 3D sculpture (Igloo-style leader line) */}
-      <div
-        ref={calloutElRef}
-        className="pointer-events-none fixed top-0 left-0 z-10"
-        style={{ opacity: 0 }}
-      >
-        <div className="flex items-start gap-2">
-          <div className="mt-2 h-[1px] w-8 bg-[#00FFFF]/80" />
-          <div className="border-l border-[#00FFFF]/70 pl-2.5">
-            <p className="font-mono-hud text-[11px] font-medium tracking-wider text-[#FFFFFF]">
-              {activeChamber.index} // {activeChamber.label}
-            </p>
-            <p className="font-mono-hud text-[10px] tracking-wider text-[#00FFFF]">
-              {activeChamber.subtitle}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Minimal Igloo-Style Sci-Fi HUD Overlay */}
-      <div className="pointer-events-none fixed inset-0 z-20 flex flex-col justify-between p-6">
-        {/* Top Corners */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="font-mono-hud text-xs tracking-wider text-[#00FFFF]">
-              SYSTEM.SYNC // PHASE 02: MULTI-CHAMBER FLIGHT
-            </p>
-            <p className="font-mono-hud text-[11px] tracking-wider text-[#8A929A]">
-              SECTOR: <span className="text-[#FFFFFF]">{activeChamber.label}</span> · DEPTH:{' '}
-              <span className="text-[#00FFFF]">
-                {String(Math.abs(activeChamber.chamberY)).padStart(3, '0')}M
+      {/* Projected 3D Spatial Callout Pins (matching reference video leader lines) */}
+      {!hudHidden && (
+        <>
+          <button
+            ref={calloutPrimaryRef}
+            type="button"
+            onClick={() => {
+              ambientAudio.playPulse();
+              setInspectedChamber(activeChamber);
+            }}
+            style={{ position: 'fixed', top: 0, left: 0, opacity: 0 }}
+            className="z-20 group flex items-start gap-2.5 text-left cursor-pointer"
+          >
+            <span className="mt-2 h-[1px] w-9 bg-[#00FFFF] group-hover:w-12 transition-all duration-150" />
+            <span className="border-l border-[#00FFFF]/80 bg-[#121417]/75 px-2.5 py-1.5 group-hover:border-[#00FFFF] group-hover:bg-[#121417]/95 transition-colors">
+              <span className="block font-mono-hud text-[11px] font-medium tracking-wider text-[#FFFFFF]">
+                {activeChamber.calloutPrimaryTitle}
               </span>
-            </p>
-          </div>
+              <span className="block font-mono-hud text-[10px] tracking-wider text-[#00FFFF]">
+                {activeChamber.calloutPrimarySub}
+              </span>
+            </span>
+          </button>
 
-          <div className="hidden sm:flex flex-col items-end space-y-1 text-right">
-            {isOrbiting ? (
+          <button
+            ref={calloutSecondaryRef}
+            type="button"
+            onClick={() => {
+              ambientAudio.playPulse();
+              setInspectedChamber(activeChamber);
+            }}
+            style={{ position: 'fixed', top: 0, left: 0, opacity: 0 }}
+            className="hidden md:flex z-20 group items-start gap-2.5 text-right cursor-pointer"
+          >
+            <span className="border-r border-[#8A929A]/60 bg-[#121417]/70 px-2.5 py-1.5 group-hover:border-[#00FFFF] transition-colors">
+              <span className="block font-mono-hud text-[10px] tracking-wider text-[#FFFFFF]">
+                {activeChamber.calloutSecondaryTitle}
+              </span>
+              <span className="block font-mono-hud text-[10px] tracking-wider text-[#8A929A] group-hover:text-[#00FFFF]">
+                {activeChamber.calloutSecondarySub}
+              </span>
+            </span>
+            <span className="mt-2 h-[1px] w-8 bg-[#8A929A]/70 group-hover:bg-[#00FFFF]" />
+          </button>
+        </>
+      )}
+
+      {/* Minimal Igloo-Style Corner HUD Overlay */}
+      <div className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between p-5 md:p-7">
+        {/* Top Row */}
+        <div className="flex items-start justify-between gap-6">
+          {!hudHidden ? (
+            <div className="space-y-1">
+              <p className="font-mono-hud text-xs md:text-sm font-medium tracking-widest text-[#FFFFFF]">
+                <ScrambleText text={activeChamber.hudTitle} />
+              </p>
+              <p className="font-mono-hud text-[11px] tracking-wider text-[#00FFFF]">
+                <ScrambleText text={activeChamber.sectionTag} durationMs={320} />
+              </p>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex flex-col items-end gap-2 text-right">
+            {!hudHidden && (
+              <div className="hidden sm:block max-w-xs space-y-1">
+                <p className="font-mono-hud text-[11px] tracking-widest text-[#00FFFF]">
+                  ////// {PLACEHOLDER_PORTFOLIO.name.toUpperCase()}
+                </p>
+                <p className="font-mono-hud text-[10px] leading-relaxed text-[#8A929A]">
+                  {PLACEHOLDER_PORTFOLIO.manifesto}
+                </p>
+              </div>
+            )}
+
+            <div className="pointer-events-auto flex items-center gap-2">
+              {!hudHidden && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    ambientAudio.playPulse();
+                    setInspectedChamber(activeChamber);
+                  }}
+                  className="font-mono-hud text-[11px] tracking-wider border border-[#00FFFF]/60 bg-[#121417]/85 px-3 py-1.5 text-[#00FFFF] hover:bg-[#00FFFF]/15 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  [ {activeChamber.actionLabel} ]
+                </button>
+              )}
+
+              {isOrbiting && !hudHidden && (
+                <button
+                  type="button"
+                  onClick={() => setCameraResetNonce((n) => n + 1)}
+                  className="font-mono-hud text-[11px] tracking-wider border border-[#8A929A]/50 bg-[#121417]/85 px-2.5 py-1.5 text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  RESET ANGLE
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => setCameraResetNonce((n) => n + 1)}
-                className="pointer-events-auto font-mono-hud text-[11px] tracking-wider text-[#FFFFFF] border border-[#00FFFF]/60 bg-[#121417]/85 px-2.5 py-1 hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors cursor-pointer"
+                onClick={() => setHudHidden((h) => !h)}
+                className="font-mono-hud text-[11px] tracking-wider border border-[#8A929A]/40 bg-[#121417]/80 px-2.5 py-1.5 text-[#8A929A] hover:text-[#FFFFFF] hover:border-[#00FFFF]/50 transition-colors cursor-pointer whitespace-nowrap"
+                title="Toggle HUD (H)"
               >
-                [ RESET FLIGHT CAMERA ]
+                {hudHidden ? 'SHOW HUD' : 'HIDE HUD'}
               </button>
-            ) : (
-              <p className="font-mono-hud text-[11px] tracking-wider text-[#8A929A]">
-                SCROLL TO FLY · DRAG TO ORBIT
-              </p>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Pedestal Morph Selector when inside Chamber 04 (matches Igloo stage switcher) */}
-        {activeChamberIdx === 4 && (
-          <div className="pointer-events-auto mx-auto flex items-center gap-2 border border-[#00FFFF]/35 bg-[#121417]/85 px-3 py-1.5">
-            {PEDESTAL_SHAPES.map((shape) => {
-              const isSelected = pedestalShape === shape.id;
+        {/* Pedestal Interactive Mode Switcher when inside CH.04 */}
+        {!hudHidden && activeChamberIdx === 3 && (
+          <div className="pointer-events-auto mx-auto flex flex-wrap items-center justify-center gap-1.5 border border-[#00FFFF]/35 bg-[#121417]/90 px-3 py-2">
+            {PEDESTAL_MODES.map((m) => {
+              const isSelected = pedestalMode === m.id;
               return (
                 <button
-                  key={shape.id}
+                  key={m.id}
                   type="button"
-                  onClick={() => setPedestalShape(shape.id)}
-                  className={`font-mono-hud text-[11px] px-2.5 py-1 transition-colors cursor-pointer whitespace-nowrap ${
+                  onClick={() => {
+                    ambientAudio.playPulse();
+                    setPedestalMode(m.id);
+                  }}
+                  className={`font-mono-hud text-[11px] px-2.5 py-1 border transition-colors cursor-pointer whitespace-nowrap ${
                     isSelected
-                      ? 'bg-[#00FFFF]/15 text-[#00FFFF] border border-[#00FFFF]/70'
-                      : 'text-[#8A929A] hover:text-[#FFFFFF] border border-transparent'
+                      ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
+                      : 'border-transparent text-[#8A929A] hover:text-[#FFFFFF]'
                   }`}
                 >
-                  {shape.label}
+                  {m.label}
                 </button>
               );
             })}
+            <span aria-hidden="true" className="hidden sm:inline text-[#8A929A]/40 px-1">
+              |
+            </span>
+            <button
+              type="button"
+              onClick={() => setInspectedChamber(activeChamber)}
+              className="font-mono-hud text-[11px] px-2.5 py-1 border border-[#00FFFF]/50 text-[#FFFFFF] hover:bg-[#00FFFF]/15 hover:text-[#00FFFF] transition-colors cursor-pointer whitespace-nowrap"
+            >
+              CONNECT / CONTACT
+            </button>
           </div>
         )}
 
-        {/* Bottom Row: Minimal Chamber Jump Bar + Scroll % */}
-        <div className="flex items-end justify-between gap-4">
-          <div className="pointer-events-auto flex flex-wrap items-center gap-1.5">
-            {CHAMBERS.map((ch, idx) => {
-              const isActive = idx === activeChamberIdx;
-              return (
-                <button
-                  key={ch.id}
-                  type="button"
-                  onClick={() => handleJumpChamber(idx)}
-                  className={`font-mono-hud text-[11px] px-2.5 py-1 border transition-colors cursor-pointer whitespace-nowrap ${
-                    isActive
-                      ? 'border-[#00FFFF] text-[#00FFFF] bg-[#00FFFF]/10'
-                      : 'border-[#8A929A]/30 text-[#8A929A] bg-[#121417]/75 hover:border-[#00FFFF]/60 hover:text-[#FFFFFF]'
-                  }`}
-                >
-                  {ch.index}
-                </button>
-              );
-            })}
-          </div>
+        {/* Bottom Row: Sound Toggle (left) + Chamber Steps & Scroll Progress Track (right) */}
+        {!hudHidden && (
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <button
+              type="button"
+              onClick={handleToggleSound}
+              className="pointer-events-auto inline-flex items-center gap-2 font-mono-hud text-[11px] tracking-wider text-[#8A929A] hover:text-[#00FFFF] transition-colors cursor-pointer"
+            >
+              {soundEnabled ? (
+                <Volume2 className="w-3.5 h-3.5 text-[#00FFFF]" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5" />
+              )}
+              <span>SOUND: {soundEnabled ? 'ON' : 'OFF'}</span>
+            </button>
 
-          <p className="font-mono-hud text-[11px] tracking-wider text-[#8A929A]">
-            SCROLL {String(Math.round(scrollProgress * 100)).padStart(3, '0')}%
-          </p>
-        </div>
+            <div className="pointer-events-auto flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                {DETAILED_CHAMBERS.map((ch, idx) => {
+                  const isActive = idx === activeChamberIdx;
+                  return (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => handleJumpChamber(idx)}
+                      className={`font-mono-hud text-[11px] px-2 py-0.5 border transition-colors cursor-pointer ${
+                        isActive
+                          ? 'border-[#00FFFF] text-[#00FFFF] bg-[#00FFFF]/12'
+                          : 'border-[#8A929A]/30 text-[#8A929A] hover:border-[#00FFFF]/60 hover:text-[#FFFFFF]'
+                      }`}
+                    >
+                      {ch.index}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2.5">
+                <span className="font-mono-hud text-[10px] tracking-widest text-[#8A929A]">
+                  SCROLL
+                </span>
+                <div className="relative h-[2px] w-24 bg-[#8A929A]/30">
+                  <div
+                    className="absolute top-0 left-0 h-full bg-[#00FFFF]"
+                    style={{ width: `${Math.round(scrollProgress * 100)}%` }}
+                  />
+                </div>
+                <span className="font-mono-hud text-[11px] text-[#00FFFF] w-9 text-right">
+                  {String(Math.round(scrollProgress * 100)).padStart(3, '0')}%
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 700vh Scroll Driver */}
+      {/* Bracketed Holographic Inspector Modal (Phase 3 Lorem Ipsum Portfolio Content) */}
+      <HologramInspectorModal
+        chamber={inspectedChamber}
+        onClose={() => setInspectedChamber(null)}
+      />
+
+      {/* 800vh Scroll Driver */}
       <main className="relative z-0 pointer-events-none" aria-hidden="true">
-        <div className="h-[700vh]" />
+        <div className="h-[800vh]" />
       </main>
     </div>
   );
