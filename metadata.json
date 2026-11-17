@@ -1,0 +1,6 @@
+{
+  "name": "Alex Mercer — 3D Neural Portfolio",
+  "description": "Interactive 3D neural-to-blockchain portfolio with scroll-choreographed camera perspectives, cursor-reactive topology, and clickable chapter nodes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
