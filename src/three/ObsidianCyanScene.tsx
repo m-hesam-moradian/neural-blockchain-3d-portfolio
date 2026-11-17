@@ -238,15 +238,15 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 2D: Teleported cleanly from Last Neuron to CH.03 Left-Framed Iris Approach (0.592 -> 0.72)
+  // Segment 2D: Teleported cleanly from Last Neuron to CH.03 Left-Framed Solar Vortex Approach (0.592 -> 0.72)
   if (p <= DETAILED_CHAMBERS[2].scrollAt) {
     const u = (p - 0.592) / (DETAILED_CHAMBERS[2].scrollAt - 0.592);
     const eased = 1 - Math.pow(1 - u, 2.5);
-    _vA.set(2.2, -12.6, -3.5);
-    _vB.set(...DETAILED_CHAMBERS[2].camPos); // [2.2, -16.4, -5.0] -> places Iris cleanly in LEFT HALF
+    _vA.set(3.9, -17.5, 1.8);
+    _vB.set(...DETAILED_CHAMBERS[2].camPos); // [3.9, -20.8, 0.2] -> frames Solar Vortex cleanly in LEFT HALF
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(2.85, -23.8, -12.0);
+    _vC.set(3.8, -24.0, -12.0);
     _vD.set(...DETAILED_CHAMBERS[2].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
@@ -267,20 +267,20 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 3: CH.03 Iris Left-Half Showcase (0.72) -> Center & Plunge through Portal -> CH.04 Pedestal (1.00)
+  // Segment 3: CH.03 Helical Solar Vortex Left-Half Showcase (0.72) -> Center & Plunge through Sun Core -> CH.04 Pedestal (1.00)
   const u = (p - DETAILED_CHAMBERS[2].scrollAt) / (1.0 - DETAILED_CHAMBERS[2].scrollAt);
   if (u < 0.34) {
-    // Hold gently framing 3D Iris on LEFT half while WORK card occupies RIGHT half
+    // Hold gently framing 3D Helical Solar Vortex on LEFT half while WORK card occupies RIGHT half
     const t = u / 0.34;
     const eased = t * t * (3 - 2 * t);
     portalFlyProgress = eased * 0.1;
 
-    _vA.set(...DETAILED_CHAMBERS[2].camPos); // [2.2, -16.4, -5.0]
-    _vB.set(2.1, -17.2, -5.6);
+    _vA.set(...DETAILED_CHAMBERS[2].camPos); // [3.9, -20.8, 0.2]
+    _vB.set(3.75, -21.2, -0.4);
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(...DETAILED_CHAMBERS[2].camTarget); // [2.85, -23.8, -12.0]
-    _vD.set(2.65, -24.0, -12.0);
+    _vC.set(...DETAILED_CHAMBERS[2].camTarget); // [3.8, -24.0, -12.0]
+    _vD.set(3.6, -24.0, -12.0);
     outTarget.lerpVectors(_vC, _vD, eased);
 
     return {
@@ -299,17 +299,17 @@ function sampleDetailedFlight(
       frontWallFade: 1,
     };
   } else if (u < 0.68) {
-    // As WORK card fades out, glide smoothly back to x=0 and plunge dead-center through the Iris portal
+    // As WORK card fades out, glide smoothly back to x=0 and dive through the Solar Vortex core toward CH.04
     const t = (u - 0.34) / 0.34;
     const eased = t * t * (3 - 2 * t);
     portalFlyProgress = 0.1 + eased * 0.9;
     warpIntensity = THREE.MathUtils.smoothstep(t, 0.2, 1.0) * 0.72;
 
-    _vA.set(2.1, -17.2, -5.6);
+    _vA.set(3.75, -21.2, -0.4);
     _vB.set(0, -31.5, -11.5);
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(2.65, -24.0, -12.0);
+    _vC.set(3.6, -24.0, -12.0);
     _vD.set(0, -48.0, -12.0);
     outTarget.lerpVectors(_vC, _vD, eased);
 

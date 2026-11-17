@@ -127,7 +127,9 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
     >
       <div
         style={animStyle}
-        className={`pointer-events-none relative ${cardWidthClass} border border-[#00FFFF]/35 bg-[#080C12]/84 backdrop-blur-md p-5 md:p-6 shadow-[0_14px_48px_rgba(0,0,0,0.78)]`}
+        className={`pointer-events-none relative ${cardWidthClass} border border-[#00FFFF]/35 bg-[#080C12]/84 backdrop-blur-md ${
+          activeCard === 'work' ? 'p-4 md:p-5' : 'p-5 md:p-6'
+        } shadow-[0_14px_48px_rgba(0,0,0,0.78)]`}
       >
         {/* Crisp Pure Cyan Corner Reticles */}
         <span aria-hidden="true" className="absolute -top-[1px] -left-[1px] h-3.5 w-3.5 border-t-2 border-l-2 border-[#00FFFF]" />
@@ -204,10 +206,10 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
         {/* CH.03 // WORK — Right-Half Docked Card (3D Figure on Left Half)   */}
         {/* ================================================================= */}
         {activeCard === 'work' && (
-          <div className="space-y-3.5">
+          <div className="space-y-2.5">
             {/* Selected Systems */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between border-b border-[#8A929A]/25 pb-1.5">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between border-b border-[#8A929A]/25 pb-1">
                 <p className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF]">
                   SELECTED SYSTEMS
                 </p>
@@ -219,42 +221,42 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                 {RESUME_DATA.projects.map((proj) => (
                   <div
                     key={proj.id}
-                    className="border border-[#8A929A]/25 bg-[#090D12]/80 px-3 py-2 space-y-0.5"
+                    className="border border-[#8A929A]/25 bg-[#090D12]/80 px-2.5 py-1.5 space-y-0.5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-display-hud text-[13px] font-medium text-[#FFFFFF]">
+                      <span className="font-display-hud text-xs font-medium text-[#FFFFFF]">
                         {proj.title}
                       </span>
-                      <span className="font-mono-hud text-[10px] text-[#00FFFF] shrink-0">
+                      <span className="font-mono-hud text-[9.5px] text-[#00FFFF] shrink-0">
                         {proj.latency} · {proj.throughput}
                       </span>
                     </div>
-                    <p className="text-[11px] leading-snug text-[#B8C2CC]">{proj.summary}</p>
-                    <p className="font-mono-hud text-[9px] text-[#8A929A]">{proj.stack}</p>
+                    <p className="text-[10.5px] leading-snug text-[#B8C2CC]">{proj.summary}</p>
+                    <p className="font-mono-hud text-[8.5px] text-[#8A929A]">{proj.stack}</p>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Career Timeline */}
-            <div className="space-y-2">
-              <p className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF] border-b border-[#8A929A]/25 pb-1.5">
+            <div className="space-y-1.5">
+              <p className="font-mono-hud text-[10px] tracking-widest text-[#00FFFF] border-b border-[#8A929A]/25 pb-1">
                 EXPERIENCE
               </p>
               <div className="space-y-1.5">
                 {RESUME_DATA.experience.map((exp) => (
                   <div
                     key={exp.company}
-                    className="border border-[#8A929A]/25 bg-[#090D12]/80 px-3 py-2 space-y-0.5"
+                    className="border border-[#8A929A]/25 bg-[#090D12]/80 px-2.5 py-1.5 space-y-0.5"
                   >
-                    <div className="flex items-center justify-between gap-2 font-mono-hud text-[9px]">
+                    <div className="flex items-center justify-between gap-2 font-mono-hud text-[8.5px]">
                       <span className="text-[#00FFFF]">{exp.period}</span>
                       <span className="text-[#8A929A] truncate">{exp.company}</span>
                     </div>
                     <p className="font-display-hud text-xs font-medium text-[#FFFFFF]">
                       {exp.role}
                     </p>
-                    <p className="text-[11px] leading-snug text-[#B8C2CC]">{exp.detail}</p>
+                    <p className="text-[10.5px] leading-snug text-[#B8C2CC]">{exp.detail}</p>
                   </div>
                 ))}
               </div>
