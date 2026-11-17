@@ -295,3 +295,45 @@ export function createBinaryBlockchainBlockTextures(
   return { map, emissiveMap };
 }
 
+/**
+ * Crisp transparent technical readout texture for 3D neural weights, biases, and activations
+ * (e.g. "w = +0.94", "b = -0.12", "a = 0.91").
+ */
+export function createNeuralMetricSpriteTexture(
+  label: string,
+  highlight = false
+): THREE.CanvasTexture {
+  const width = 256;
+  const height = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.clearRect(0, 0, width, height);
+
+  // Subtle dark graphite backing with sharp hairline cyan tick (no rounded pill)
+  ctx.fillStyle = 'rgba(14, 17, 22, 0.78)';
+  ctx.fillRect(14, 12, width - 28, height - 24);
+
+  ctx.strokeStyle = highlight ? 'rgba(0, 255, 255, 0.85)' : 'rgba(0, 255, 255, 0.45)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(14, 12, width - 28, height - 24);
+
+  // Tiny square anchor dot on left edge
+  ctx.fillStyle = '#00FFFF';
+  ctx.fillRect(22, height / 2 - 4, 8, 8);
+
+  ctx.font = 'bold 24px "JetBrains Mono", ui-monospace, monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = highlight ? '#FFFFFF' : '#00FFFF';
+  ctx.fillText(label, 40, height / 2 + 1);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+

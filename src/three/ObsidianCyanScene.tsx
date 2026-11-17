@@ -85,8 +85,8 @@ function sampleDetailedFlight(
 
   let warpIntensity = 0;
   let portalFlyProgress = 0;
-  // Summit radial block opening ramps cleanly ahead of the camera crossing z = 0
-  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.16);
+  // Summit radial block explosion ramps slowly ahead of diving inside the Chosen Block
+  const summitExplodeProgress = THREE.MathUtils.smoothstep(p, 0.0, 0.22);
 
   // Segment 1: CH.01 Binary Blockchain Monument (0.00) -> Straight INSIDE Monument (0,1.55,0) -> CH.02 Deep Neural Net (0.36)
   if (p <= DETAILED_CHAMBERS[1].scrollAt) {
@@ -105,7 +105,7 @@ function sampleDetailedFlight(
     _vD.set(...DETAILED_CHAMBERS[1].camTarget);
     outTarget.lerpVectors(_vC, _vD, eased);
 
-    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.22) / 0.56, 0, 1) * Math.PI);
+    warpIntensity = Math.sin(THREE.MathUtils.clamp((u - 0.36) / 0.48, 0, 1) * Math.PI) * 0.72;
     return {
       chamberIdx,
       warpIntensity,
@@ -296,10 +296,10 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     renderer.domElement.style.height = '100vh';
     renderer.domElement.style.cursor = 'grab';
 
-    // Deep Graphite Environment (#121417) + calibrated Fog so Martian ridges stay visible
+    // Deep Graphite Environment (#121417) + subtle fog preserving sharp contrast
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x121417);
-    scene.fog = new THREE.FogExp2(0x121417, 0.021);
+    scene.fog = new THREE.FogExp2(0x121417, 0.017);
 
     // Studio Reflection Map for crisp metallic basalt & clear quartz bevels
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -358,7 +358,7 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const summitChamber = buildSummitChamber(obsidianTex, glowTex, binaryTexA, binaryTexB);
     scene.add(summitChamber.root);
 
-    const driftChamber = buildDriftChamber(-36, glowTex, binaryTexA);
+    const driftChamber = buildDriftChamber(-36, glowTex);
     scene.add(driftChamber.root);
 
     const irisChamber = buildIrisChamber(-24, -68, obsidianTex, glowTex);
@@ -414,16 +414,16 @@ export const ObsidianCyanScene: React.FC<ObsidianCyanSceneProps> = ({
     const motes = new THREE.Points(moteGeo, moteMat);
     scene.add(motes);
 
-    // Hardware-GPU UnrealBloomPass for radiant Pure Cyan glow
+    // Hardware-GPU UnrealBloomPass tuned crisp so dark graphite stays deep charcoal
     let composer: EffectComposer | null = null;
     if (!isSoftwareGl) {
       composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
       const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(width, height),
-        0.42,
-        0.35,
-        0.72
+        0.32,
+        0.28,
+        0.8
       );
       composer.addPass(bloomPass);
       composer.addPass(new OutputPass());

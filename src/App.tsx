@@ -122,11 +122,11 @@ export default function App() {
         onTelemetryUpdate={handleTelemetryUpdate}
       />
 
-      {/* Portal / Warp Pure Cyan Atmospheric Flash */}
+      {/* Portal / Warp Pure Cyan Atmospheric Flash (kept subtle to preserve #121417 dark graphite contrast) */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-10 bg-[#00FFFF]"
-        style={{ opacity: warpIntensity * 0.14, transition: 'opacity 60ms linear' }}
+        style={{ opacity: warpIntensity * 0.05, transition: 'opacity 60ms linear' }}
       />
 
       {/* Projected 3D Spatial Callout Pins (matching reference video leader lines) */}
