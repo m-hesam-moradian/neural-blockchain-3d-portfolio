@@ -65,7 +65,10 @@ export interface ResumeData {
     avatarUrl: string;
     avatarCaption: string;
     email: string;
+    phone: string;
+    githubHandle: string;
     githubUrl: string;
+    linkedinHandle: string;
     linkedinUrl: string;
   };
   about: {
@@ -76,11 +79,12 @@ export interface ResumeData {
   };
   /** Dynamic key skills rendered as orbiting planets in CH.03 (count & colors auto-adapt) */
   keySkills: ResumeKeySkill[];
-  /** Descriptive captions for the 3 morphing 3D figures on the CH.04 Pedestal */
+  /** Descriptive captions for the 4 contact-linked 3D figures on the CH.04 Pedestal */
   stageFigures: {
-    blockchain: ResumeStageFigureInfo;
-    neural: ResumeStageFigureInfo;
-    helix: ResumeStageFigureInfo;
+    email: ResumeStageFigureInfo;
+    github: ResumeStageFigureInfo;
+    linkedin: ResumeStageFigureInfo;
+    contact: ResumeStageFigureInfo;
   };
   projects: ResumeProject[];
   experience: ResumeExperience[];
@@ -92,11 +96,14 @@ export const RESUME_DATA: ResumeData = {
     role: 'Applied AI & Distributed Systems Engineer',
     manifesto: 'Neural inference pipelines & decentralized consensus architectures.',
     location: 'San Francisco · Remote',
-    availability: 'OPEN FOR ROLES',
+    availability: 'Open for Roles',
     avatarUrl: '', // Drop photo in /public/profile.jpg and set '/profile.jpg'
     avatarCaption: 'ID_01',
     email: 'hello@alexmercer.example',
+    phone: '+1 (415) 555-0194',
+    githubHandle: '@m-hesam-moradian',
     githubUrl: 'https://github.com/m-hesam-moradian',
+    linkedinHandle: 'in/alex-mercer-systems',
     linkedinUrl: 'https://linkedin.com',
   },
   about: {
@@ -135,23 +142,25 @@ export const RESUME_DATA: ResumeData = {
     { name: 'TypeScript', color: '#FFFFFF' },
   ],
   stageFigures: {
-    blockchain: {
-      label: 'BLOCKCHAIN',
-      title: 'Consensus Lattice Core',
-      description:
-        'Cryptographic polyhedral mesh representing decentralized validator consensus and deterministic finality.',
+    email: {
+      label: 'Email',
+      title: 'Direct Email',
+      description: 'Send inquiries, architecture briefs, or role opportunities directly via email.',
     },
-    neural: {
-      label: 'NEURAL',
-      title: 'Inference Wave Manifold',
-      description:
-        'Dynamic harmonic tensor field modeling quantized neural routing and parallel activation states.',
+    github: {
+      label: 'GitHub',
+      title: 'GitHub Repositories',
+      description: 'Explore open-source AI runtimes, distributed consensus protocols, and WebGL tools.',
     },
-    helix: {
-      label: 'HELIX',
-      title: 'Spatiotemporal Double Strand',
-      description:
-        'Interlocking twin data streams uniting real-time telemetry with resilient distributed systems.',
+    linkedin: {
+      label: 'LinkedIn',
+      title: 'LinkedIn Profile',
+      description: 'Connect for engineering leadership, advisory roles, and systems architecture.',
+    },
+    contact: {
+      label: 'Phone & Form',
+      title: 'Phone & Direct Message',
+      description: 'Reach out directly by phone or send an instant message from this stage.',
     },
   },
   projects: [

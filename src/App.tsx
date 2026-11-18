@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { HologramInspectorModal, ScrollCardKind } from './components/HologramInspectorModal';
 import { DETAILED_CHAMBERS } from './data/portfolioSections';
@@ -26,10 +26,10 @@ interface ScrollCardState {
 }
 
 function getScrollCardState(progress: number): ScrollCardState {
-  // CH.02 // ABOUT ME (unobstructed neural viewing 0.21..0.30, then sweeps side-wise left & About Me card opens right 0.315..0.46)
-  if (progress >= 0.315 && progress <= 0.46) {
-    const enterT = smoothstep(0.315, 0.36, progress);
-    const exitT = smoothstep(0.42, 0.46, progress);
+  // CH.02 // ABOUT ME (neural hold 0.19..0.27, then sweeps left while About Me card opens right 0.28..0.41)
+  if (progress >= 0.28 && progress <= 0.41) {
+    const enterT = smoothstep(0.28, 0.32, progress);
+    const exitT = smoothstep(0.37, 0.41, progress);
     return {
       activeCard: 'about',
       revealAmount: enterT * (1 - exitT),
@@ -38,10 +38,10 @@ function getScrollCardState(progress: number): ScrollCardState {
     };
   }
 
-  // CH.03 // WORK (enters 0.65->0.70, holds on right half while 3D Iris sits left 0.70..0.785, fades out 0.785->0.83)
-  if (progress >= 0.65 && progress <= 0.83) {
-    const enterT = smoothstep(0.65, 0.70, progress);
-    const exitT = smoothstep(0.785, 0.83, progress);
+  // CH.03 // WORK (enters 0.585->0.63, holds on left half while Reactor sits right, fades out 0.695->0.73)
+  if (progress >= 0.585 && progress <= 0.73) {
+    const enterT = smoothstep(0.585, 0.63, progress);
+    const exitT = smoothstep(0.695, 0.73, progress);
     return {
       activeCard: 'work',
       revealAmount: enterT * (1 - exitT),
@@ -50,14 +50,15 @@ function getScrollCardState(progress: number): ScrollCardState {
     };
   }
 
-  // CH.04 // CONTACT (enters 0.91->0.96, remains open at pedestal 1.00)
-  if (progress >= 0.91) {
-    const enterT = smoothstep(0.91, 0.96, progress);
+  // CH.04 // CONTACT (opens at pedestal 0.815->0.845, holds 0.845..0.908, fades cleanly before overhead halo teleport 0.908->0.932)
+  if (progress >= 0.815 && progress <= 0.932) {
+    const enterT = smoothstep(0.815, 0.845, progress);
+    const exitT = smoothstep(0.908, 0.932, progress);
     return {
       activeCard: 'contact',
-      revealAmount: enterT,
+      revealAmount: enterT * (1 - exitT),
       enterT,
-      exitT: 0,
+      exitT,
     };
   }
 
@@ -70,10 +71,11 @@ export default function App() {
   const [warpIntensity, setWarpIntensity] = useState(0);
   const [teleportFlash, setTeleportFlash] = useState(0);
   const [isOrbiting, setIsOrbiting] = useState(false);
-  const [pedestalMode, setPedestalMode] = useState<PedestalMode>('blockchain');
+  const [pedestalMode, setPedestalMode] = useState<PedestalMode>('email');
   const [cameraResetNonce, setCameraResetNonce] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [hudHidden, setHudHidden] = useState(false);
+  const lastLoopWrapRef = useRef(0);
 
   useEffect(() => {
     let raf = 0;
@@ -81,6 +83,15 @@ export default function App() {
       raf = 0;
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       const progress = Math.min(1, Math.max(0, window.scrollY / maxScroll));
+
+      // Seamless infinite loop: once sky descent lands right at Stage 1 (>= 0.994), wrap back to top
+      if (progress >= 0.994 && Date.now() - lastLoopWrapRef.current > 700) {
+        lastLoopWrapRef.current = Date.now();
+        window.scrollTo({ top: 1, behavior: 'auto' });
+        setScrollProgress(1 / maxScroll);
+        return;
+      }
+
       setScrollProgress(progress);
     };
 
@@ -286,9 +297,9 @@ export default function App() {
         }}
       />
 
-      {/* 1200vh Scroll Driver for liquid neural ride & half-half chapter pacing */}
+      {/* 1400vh Scroll Driver for liquid neural ride, chapter holds & seamless sky-descent loop */}
       <main className="relative z-0 pointer-events-none" aria-hidden="true">
-        <div className="h-[1200vh]" />
+        <div className="h-[1400vh]" />
       </main>
     </div>
   );

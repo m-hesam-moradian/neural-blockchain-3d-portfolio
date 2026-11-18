@@ -5,7 +5,7 @@ import {
   createSkillPlanetLabelTexture,
 } from './proceduralTextures';
 
-export type PedestalMode = 'blockchain' | 'neural' | 'helix';
+export type PedestalMode = 'email' | 'github' | 'linkedin' | 'contact';
 
 export function createRng(seed: number) {
   let s = seed >>> 0;
@@ -1437,7 +1437,7 @@ export function buildIrisChamber(
 }
 
 /**
- * CH.04 // THE PEDESTAL: Precision Machined Circuit Platform + 2,200-Particle & Wireframe Morphing Hologram
+ * CH.04 // THE PEDESTAL: Precision Machined Circuit Platform + 2,400-Particle & Wireframe Contact Emblems
  */
 export function buildPedestalChamber(
   yPos: number,
@@ -1447,6 +1447,7 @@ export function buildPedestalChamber(
 ) {
   const root = new THREE.Group();
   root.position.set(0, yPos, zPos);
+  const disposables: { dispose: () => void }[] = [];
 
   const platformGroup = new THREE.Group();
   platformGroup.position.set(0, -1.75, 0);
@@ -1459,6 +1460,7 @@ export function buildPedestalChamber(
     metalness: 0.78,
   });
   platformGroup.add(new THREE.Mesh(topDiscGeo, topDiscMat));
+  disposables.push(topDiscGeo, topDiscMat);
 
   const baseGeo = new THREE.CylinderGeometry(4.2, 4.65, 0.36, 48);
   const baseMat = new THREE.MeshStandardMaterial({
@@ -1469,6 +1471,7 @@ export function buildPedestalChamber(
   const baseMesh = new THREE.Mesh(baseGeo, baseMat);
   baseMesh.position.y = -0.24;
   platformGroup.add(baseMesh);
+  disposables.push(baseGeo, baseMat);
 
   const trimCount = 16;
   const trimGeo = new THREE.BoxGeometry(0.55, 0.18, 0.28);
@@ -1488,8 +1491,8 @@ export function buildPedestalChamber(
   }
   trims.instanceMatrix.needsUpdate = true;
   platformGroup.add(trims);
+  disposables.push(trimGeo, trimMat);
 
-  const ringGeos: THREE.BufferGeometry[] = [];
   const cyanRingMat = new THREE.MeshBasicMaterial({
     color: 0x00ffff,
     transparent: true,
@@ -1498,21 +1501,22 @@ export function buildPedestalChamber(
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
+  disposables.push(cyanRingMat);
 
   [1.45, 2.45, 3.62].forEach((r) => {
     const rg = new THREE.RingGeometry(r - 0.028, r, 64);
     rg.rotateX(-Math.PI / 2);
-    ringGeos.push(rg);
+    disposables.push(rg);
     const rm = new THREE.Mesh(rg, cyanRingMat);
     rm.position.y = 0.08;
     platformGroup.add(rm);
   });
 
   const arcGroup = new THREE.Group();
-  arcGroup.position.set(0, 0.35, 0);
+  arcGroup.position.set(0, 0.45, 0);
   root.add(arcGroup);
 
-  const arcGeo = new THREE.TorusGeometry(2.55, 0.026, 10, 40, Math.PI * 0.55);
+  const arcGeo = new THREE.TorusGeometry(2.65, 0.026, 10, 40, Math.PI * 0.55);
   const arcMat = new THREE.MeshBasicMaterial({
     color: 0x00ffff,
     transparent: true,
@@ -1526,83 +1530,321 @@ export function buildPedestalChamber(
     arc.rotation.z = (i * Math.PI * 2) / 3;
     arcGroup.add(arc);
   }
+  disposables.push(arcGeo, arcMat);
 
-  const topHaloGeo = new THREE.TorusGeometry(2.15, 0.028, 12, 64);
+  // Overhead Teleport Return Halo Gate (portal back to Stage 1 Sky)
+  const topHaloGeo = new THREE.TorusGeometry(2.45, 0.034, 12, 72);
   topHaloGeo.rotateX(Math.PI / 2);
   const topHalo = new THREE.Mesh(topHaloGeo, cyanRingMat);
-  topHalo.position.set(0, 2.65, 0);
+  topHalo.position.set(0, 2.95, 0);
   root.add(topHalo);
+  disposables.push(topHaloGeo);
 
-  const graphGroup = new THREE.Group();
-  graphGroup.position.set(0, 0.52, 0);
-  root.add(graphGroup);
-
-  const icoGeo = new THREE.IcosahedronGeometry(1.55, 1);
-  const icoEdgesGeo = new THREE.EdgesGeometry(icoGeo);
-  const octGeo = new THREE.OctahedronGeometry(0.95, 0);
-  const octEdgesGeo = new THREE.EdgesGeometry(octGeo);
-  const graphWireMat = new THREE.LineBasicMaterial({
+  const portalDiscGeo = new THREE.RingGeometry(1.65, 2.42, 64);
+  portalDiscGeo.rotateX(Math.PI / 2);
+  const portalDiscMat = new THREE.MeshBasicMaterial({
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.68,
+    opacity: 0.14,
+    side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  graphGroup.add(
-    new THREE.LineSegments(icoEdgesGeo, graphWireMat),
-    new THREE.LineSegments(octEdgesGeo, graphWireMat)
-  );
+  const portalDisc = new THREE.Mesh(portalDiscGeo, portalDiscMat);
+  portalDisc.position.set(0, 2.95, 0);
+  root.add(portalDisc);
+  disposables.push(portalDiscGeo, portalDiscMat);
 
-  const P_COUNT = 2200;
+  // Inner Wireframe Contact Emblems Group
+  const graphGroup = new THREE.Group();
+  graphGroup.position.set(0, 0.72, 0);
+  root.add(graphGroup);
+
+  const makeWireMat = (color: number, initialOpacity = 0) => {
+    const mat = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity: initialOpacity,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    disposables.push(mat);
+    return mat;
+  };
+
+  // --- Emblem 1: EMAIL (3D Envelope + V-flap + Outer Orbital Halo) ---
+  const emailGroup = new THREE.Group();
+  const emailMat = makeWireMat(0x00ffff, 0.85);
+  const emailBrightMat = makeWireMat(0xd8ffff, 0.9);
+  const envBoxGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(2.3, 1.5, 0.24));
+  emailGroup.add(new THREE.LineSegments(envBoxGeo, emailMat));
+  const flapGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-1.15, 0.75, 0.125),
+    new THREE.Vector3(0.0, -0.1, 0.125),
+    new THREE.Vector3(1.15, 0.75, 0.125),
+  ]);
+  const flapBackGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-1.15, 0.75, -0.125),
+    new THREE.Vector3(0.0, -0.1, -0.125),
+    new THREE.Vector3(1.15, 0.75, -0.125),
+  ]);
+  const bottomFoldGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-1.15, -0.75, 0.125),
+    new THREE.Vector3(-0.34, 0.16, 0.125),
+  ]);
+  const bottomFoldRGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(1.15, -0.75, 0.125),
+    new THREE.Vector3(0.34, 0.16, 0.125),
+  ]);
+  emailGroup.add(
+    new THREE.Line(flapGeo, emailBrightMat),
+    new THREE.Line(flapBackGeo, emailMat),
+    new THREE.Line(bottomFoldGeo, emailMat),
+    new THREE.Line(bottomFoldRGeo, emailMat)
+  );
+  graphGroup.add(emailGroup);
+  disposables.push(envBoxGeo, flapGeo, flapBackGeo, bottomFoldGeo, bottomFoldRGeo);
+
+  // --- Emblem 2: GITHUB (3D Branching Commit DAG + Diamond Cage) ---
+  const githubGroup = new THREE.Group();
+  const githubMat = makeWireMat(0x00ffff, 0);
+  const githubBrightMat = makeWireMat(0xd8ffff, 0);
+  const ghOuterGeo = new THREE.EdgesGeometry(new THREE.OctahedronGeometry(1.55, 0));
+  githubGroup.add(new THREE.LineSegments(ghOuterGeo, githubMat));
+  const mainTrunkGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-0.42, -1.05, 0),
+    new THREE.Vector3(-0.42, 1.05, 0),
+  ]);
+  const branchCurve = new THREE.CubicBezierCurve3(
+    new THREE.Vector3(-0.42, -0.45, 0),
+    new THREE.Vector3(0.55, -0.3, 0.25),
+    new THREE.Vector3(0.55, 0.45, -0.25),
+    new THREE.Vector3(-0.42, 0.65, 0)
+  );
+  const branchGeo = new THREE.BufferGeometry().setFromPoints(branchCurve.getPoints(28));
+  githubGroup.add(new THREE.Line(mainTrunkGeo, githubBrightMat), new THREE.Line(branchGeo, githubBrightMat));
+  const commitNodeGeo = new THREE.EdgesGeometry(new THREE.OctahedronGeometry(0.18, 0));
+  [
+    new THREE.Vector3(-0.42, -0.95, 0),
+    new THREE.Vector3(-0.42, -0.45, 0),
+    new THREE.Vector3(0.32, 0.08, 0),
+    new THREE.Vector3(-0.42, 0.65, 0),
+    new THREE.Vector3(-0.42, 1.02, 0),
+  ].forEach((pos) => {
+    const m = new THREE.LineSegments(commitNodeGeo, githubBrightMat);
+    m.position.copy(pos);
+    githubGroup.add(m);
+  });
+  graphGroup.add(githubGroup);
+  disposables.push(ghOuterGeo, mainTrunkGeo, branchGeo, commitNodeGeo);
+
+  // --- Emblem 3: LINKEDIN (Architectural 3D "in" Monogram + Frame) ---
+  const linkedinGroup = new THREE.Group();
+  const liMat = makeWireMat(0x00ffff, 0);
+  const liBrightMat = makeWireMat(0xd8ffff, 0);
+  const liFrameGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(2.15, 2.15, 0.26));
+  linkedinGroup.add(new THREE.LineSegments(liFrameGeo, liMat));
+  const iDotGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.24, 0.24, 0.24));
+  const iDot = new THREE.LineSegments(iDotGeo, liBrightMat);
+  iDot.position.set(-0.56, 0.54, 0);
+  const iStemGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.24, 0.88, 0.22));
+  const iStem = new THREE.LineSegments(iStemGeo, liBrightMat);
+  iStem.position.set(-0.56, -0.18, 0);
+  const nLeftGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.24, 0.92, 0.22));
+  const nLeft = new THREE.LineSegments(nLeftGeo, liBrightMat);
+  nLeft.position.set(0.0, -0.16, 0);
+  const nRightGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.24, 0.68, 0.22));
+  const nRight = new THREE.LineSegments(nRightGeo, liBrightMat);
+  nRight.position.set(0.6, -0.28, 0);
+  const nArchGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.84, 0.24, 0.22));
+  const nArch = new THREE.LineSegments(nArchGeo, liBrightMat);
+  nArch.position.set(0.3, 0.18, 0);
+  linkedinGroup.add(iDot, iStem, nLeft, nRight, nArch);
+  graphGroup.add(linkedinGroup);
+  disposables.push(liFrameGeo, iDotGeo, iStemGeo, nLeftGeo, nRightGeo, nArchGeo);
+
+  // --- Emblem 4: CONTACT / PHONE & FORM (3D Signal Transceiver + Wave Rings) ---
+  const contactGroup = new THREE.Group();
+  const ctMat = makeWireMat(0x00ffff, 0);
+  const ctBrightMat = makeWireMat(0xd8ffff, 0);
+  const spireGeo = new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.06, 0.36, 2.2, 6));
+  contactGroup.add(new THREE.LineSegments(spireGeo, ctBrightMat));
+  [0.65, 1.08, 1.52].forEach((r, idx) => {
+    const ringGeo = new THREE.EdgesGeometry(new THREE.TorusGeometry(r, 0.025, 6, 36));
+    const ring = new THREE.LineSegments(ringGeo, idx === 1 ? ctBrightMat : ctMat);
+    ring.rotation.x = Math.PI / 2 - idx * 0.26;
+    ring.position.y = (idx - 1) * 0.34;
+    contactGroup.add(ring);
+    disposables.push(ringGeo);
+  });
+  graphGroup.add(contactGroup);
+  disposables.push(spireGeo);
+
+  // --- 2,400 Morphing Particle Cloud Sculptures ---
+  const P_COUNT = 2400;
   const rng = createRng(9924);
-  const blockchainArr = new Float32Array(P_COUNT * 3);
-  const neuralArr = new Float32Array(P_COUNT * 3);
-  const helixArr = new Float32Array(P_COUNT * 3);
+  const emailArr = new Float32Array(P_COUNT * 3);
+  const githubArr = new Float32Array(P_COUNT * 3);
+  const linkedinArr = new Float32Array(P_COUNT * 3);
+  const contactArr = new Float32Array(P_COUNT * 3);
   const liveArr = new Float32Array(P_COUNT * 3);
 
-  const icoPos = icoEdgesGeo.attributes.position;
-  const edgeSegCount = icoPos.count / 2;
+  const sampleSeg = (
+    ax: number,
+    ay: number,
+    az: number,
+    bx: number,
+    by: number,
+    bz: number,
+    jitter = 0.04
+  ): [number, number, number] => {
+    const t = rng();
+    return [
+      ax + (bx - ax) * t + (rng() - 0.5) * jitter,
+      ay + (by - ay) * t + (rng() - 0.5) * jitter,
+      az + (bz - az) * t + (rng() - 0.5) * jitter,
+    ];
+  };
+
+  const envSegments: [number, number, number, number, number, number][] = [
+    [-1.15, 0.75, 0.12, 1.15, 0.75, 0.12],
+    [1.15, 0.75, 0.12, 1.15, -0.75, 0.12],
+    [1.15, -0.75, 0.12, -1.15, -0.75, 0.12],
+    [-1.15, -0.75, 0.12, -1.15, 0.75, 0.12],
+    [-1.15, 0.75, -0.12, 1.15, 0.75, -0.12],
+    [1.15, 0.75, -0.12, 1.15, -0.75, -0.12],
+    [1.15, -0.75, -0.12, -1.15, -0.75, -0.12],
+    [-1.15, -0.75, -0.12, -1.15, 0.75, -0.12],
+    [-1.15, 0.75, 0.12, 0.0, -0.12, 0.12],
+    [1.15, 0.75, 0.12, 0.0, -0.12, 0.12],
+    [-1.15, -0.75, 0.12, -0.34, 0.16, 0.12],
+    [1.15, -0.75, 0.12, 0.34, 0.16, 0.12],
+  ];
+
+  const ghNodeCenters = [
+    [-0.42, -0.95, 0],
+    [-0.42, -0.45, 0],
+    [0.32, 0.08, 0],
+    [-0.42, 0.65, 0],
+    [-0.42, 1.02, 0],
+  ];
+  const ghPosAttr = ghOuterGeo.attributes.position;
+  const ghEdgeCount = ghPosAttr.count / 2;
   const vA = new THREE.Vector3();
   const vB = new THREE.Vector3();
   const vLerp = new THREE.Vector3();
 
   for (let i = 0; i < P_COUNT; i++) {
     const u = i / P_COUNT;
-    if (i < P_COUNT * 0.78) {
-      const segIdx = i % edgeSegCount;
-      vA.fromBufferAttribute(icoPos, segIdx * 2);
-      vB.fromBufferAttribute(icoPos, segIdx * 2 + 1);
-      vLerp.lerpVectors(vA, vB, rng());
-      vLerp.x += (rng() - 0.5) * 0.05;
-      vLerp.y += (rng() - 0.5) * 0.05;
-      vLerp.z += (rng() - 0.5) * 0.05;
+
+    // 1. EMAIL: Envelope + outer orbital halo
+    if (i < P_COUNT * 0.74) {
+      const seg = envSegments[i % envSegments.length];
+      const [px, py, pz] = sampleSeg(seg[0], seg[1], seg[2], seg[3], seg[4], seg[5], 0.07);
+      emailArr[i * 3] = px;
+      emailArr[i * 3 + 1] = py;
+      emailArr[i * 3 + 2] = pz;
     } else {
+      const a = u * Math.PI * 16;
+      const r = 1.62 + (rng() - 0.5) * 0.12;
+      emailArr[i * 3] = Math.cos(a) * r;
+      emailArr[i * 3 + 1] = Math.sin(a) * 0.42 + (rng() - 0.5) * 0.08;
+      emailArr[i * 3 + 2] = Math.sin(a) * r;
+    }
+
+    // 2. GITHUB: Branching DAG + Outer Diamond Cage
+    if (i < P_COUNT * 0.48) {
+      const sIdx = i % ghEdgeCount;
+      vA.fromBufferAttribute(ghPosAttr, sIdx * 2);
+      vB.fromBufferAttribute(ghPosAttr, sIdx * 2 + 1);
+      vLerp.lerpVectors(vA, vB, rng());
+      githubArr[i * 3] = vLerp.x + (rng() - 0.5) * 0.05;
+      githubArr[i * 3 + 1] = vLerp.y + (rng() - 0.5) * 0.05;
+      githubArr[i * 3 + 2] = vLerp.z + (rng() - 0.5) * 0.05;
+    } else if (i < P_COUNT * 0.76) {
+      const cPt = branchCurve.getPoint(rng());
+      if (i % 2 === 0) {
+        githubArr[i * 3] = -0.42 + (rng() - 0.5) * 0.07;
+        githubArr[i * 3 + 1] = -1.05 + rng() * 2.1;
+        githubArr[i * 3 + 2] = (rng() - 0.5) * 0.07;
+      } else {
+        githubArr[i * 3] = cPt.x + (rng() - 0.5) * 0.06;
+        githubArr[i * 3 + 1] = cPt.y + (rng() - 0.5) * 0.06;
+        githubArr[i * 3 + 2] = cPt.z + (rng() - 0.5) * 0.06;
+      }
+    } else {
+      const center = ghNodeCenters[i % ghNodeCenters.length];
       const phi = rng() * Math.PI * 2;
       const cosT = rng() * 2 - 1;
       const sinT = Math.sqrt(Math.max(0, 1 - cosT * cosT));
-      const r = 0.45 + rng() * 0.65;
-      vLerp.set(r * sinT * Math.cos(phi), r * cosT, r * sinT * Math.sin(phi));
+      const r = 0.06 + rng() * 0.14;
+      githubArr[i * 3] = center[0] + r * sinT * Math.cos(phi);
+      githubArr[i * 3 + 1] = center[1] + r * cosT;
+      githubArr[i * 3 + 2] = center[2] + r * sinT * Math.sin(phi);
     }
-    blockchainArr[i * 3] = vLerp.x;
-    blockchainArr[i * 3 + 1] = vLerp.y;
-    blockchainArr[i * 3 + 2] = vLerp.z;
 
-    const theta = u * Math.PI * 8;
-    const waveR = 0.8 + Math.sin(theta * 0.5) * 0.65 + (rng() - 0.5) * 0.45;
-    neuralArr[i * 3] = Math.cos(theta) * waveR;
-    neuralArr[i * 3 + 1] = Math.sin(theta * 0.75) * 0.95 + (rng() - 0.5) * 0.4;
-    neuralArr[i * 3 + 2] = Math.sin(theta) * waveR;
+    // 3. LINKEDIN: Sculpted 3D "in" Monogram + Architectural Frame
+    const zone = i % 10;
+    if (zone < 3) {
+      // Square outer frame
+      const side = i % 4;
+      const t = rng() * 2.15 - 1.075;
+      const fx = side === 0 ? t : side === 1 ? 1.075 : side === 2 ? -t : -1.075;
+      const fy = side === 0 ? 1.075 : side === 1 ? -t : side === 2 ? -1.075 : t;
+      linkedinArr[i * 3] = fx + (rng() - 0.5) * 0.06;
+      linkedinArr[i * 3 + 1] = fy + (rng() - 0.5) * 0.06;
+      linkedinArr[i * 3 + 2] = (rng() - 0.5) * 0.24;
+    } else if (zone === 3) {
+      // 'i' dot
+      linkedinArr[i * 3] = -0.56 + (rng() - 0.5) * 0.24;
+      linkedinArr[i * 3 + 1] = 0.54 + (rng() - 0.5) * 0.24;
+      linkedinArr[i * 3 + 2] = (rng() - 0.5) * 0.22;
+    } else if (zone < 6) {
+      // 'i' stem
+      linkedinArr[i * 3] = -0.56 + (rng() - 0.5) * 0.22;
+      linkedinArr[i * 3 + 1] = -0.62 + rng() * 0.88;
+      linkedinArr[i * 3 + 2] = (rng() - 0.5) * 0.2;
+    } else if (zone < 8) {
+      // 'n' left stem
+      linkedinArr[i * 3] = 0.0 + (rng() - 0.5) * 0.22;
+      linkedinArr[i * 3 + 1] = -0.62 + rng() * 0.92;
+      linkedinArr[i * 3 + 2] = (rng() - 0.5) * 0.2;
+    } else {
+      // 'n' arch & right leg
+      if (i % 2 === 0) {
+        linkedinArr[i * 3] = -0.1 + rng() * 0.82;
+        linkedinArr[i * 3 + 1] = 0.18 + (rng() - 0.5) * 0.22;
+      } else {
+        linkedinArr[i * 3] = 0.6 + (rng() - 0.5) * 0.22;
+        linkedinArr[i * 3 + 1] = -0.62 + rng() * 0.86;
+      }
+      linkedinArr[i * 3 + 2] = (rng() - 0.5) * 0.2;
+    }
 
-    const strand = i % 2 === 0 ? 1 : -1;
-    const hAngle = u * Math.PI * 7;
-    const hRad = 1.05;
-    helixArr[i * 3] = Math.cos(hAngle) * hRad * strand + (rng() - 0.5) * 0.14;
-    helixArr[i * 3 + 1] = (u - 0.5) * 2.9;
-    helixArr[i * 3 + 2] = Math.sin(hAngle) * hRad * strand + (rng() - 0.5) * 0.14;
+    // 4. CONTACT (PHONE & FORM): Harmonic Signal Beacon + Broadcast Wave Rings
+    if (i < P_COUNT * 0.42) {
+      const hAngle = u * Math.PI * 10;
+      const rad = 0.22 + (1 - u) * 0.35;
+      const strand = i % 2 === 0 ? 1 : -1;
+      contactArr[i * 3] = Math.cos(hAngle) * rad * strand;
+      contactArr[i * 3 + 1] = (u - 0.5) * 2.25;
+      contactArr[i * 3 + 2] = Math.sin(hAngle) * rad * strand;
+    } else {
+      const ringIdx = i % 3;
+      const rBase = 0.68 + ringIdx * 0.46;
+      const a = rng() * Math.PI * 2;
+      const tilt = 0.32 * ringIdx;
+      const rx = Math.cos(a) * rBase;
+      const rz = Math.sin(a) * rBase;
+      contactArr[i * 3] = rx + (rng() - 0.5) * 0.05;
+      contactArr[i * 3 + 1] =
+        (ringIdx - 1) * 0.34 + rz * Math.sin(tilt) + (rng() - 0.5) * 0.05;
+      contactArr[i * 3 + 2] = rz * Math.cos(tilt) + (rng() - 0.5) * 0.05;
+    }
 
-    liveArr[i * 3] = blockchainArr[i * 3];
-    liveArr[i * 3 + 1] = blockchainArr[i * 3 + 1];
-    liveArr[i * 3 + 2] = blockchainArr[i * 3 + 2];
+    liveArr[i * 3] = emailArr[i * 3];
+    liveArr[i * 3 + 1] = emailArr[i * 3 + 1];
+    liveArr[i * 3 + 2] = emailArr[i * 3 + 2];
   }
 
   const particleGeo = new THREE.BufferGeometry();
@@ -1611,18 +1853,19 @@ export function buildPedestalChamber(
   particleGeo.setAttribute('position', posAttr);
 
   const particleMat = new THREE.PointsMaterial({
-    size: 0.135,
+    size: 0.125,
     map: glowTex,
     color: 0x00ffff,
     transparent: true,
-    opacity: 0.95,
+    opacity: 0.92,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     sizeAttenuation: true,
   });
   const particleCloud = new THREE.Points(particleGeo, particleMat);
-  particleCloud.position.set(0, 0.52, 0);
+  particleCloud.position.set(0, 0.72, 0);
   root.add(particleCloud);
+  disposables.push(particleGeo, particleMat);
 
   return {
     root,
@@ -1634,13 +1877,19 @@ export function buildPedestalChamber(
       pointerY: number
     ) => {
       const targetArr =
-        mode === 'blockchain' ? blockchainArr : mode === 'neural' ? neuralArr : helixArr;
-      const lerpAlpha = 1 - Math.exp(-5.2 * delta);
+        mode === 'email'
+          ? emailArr
+          : mode === 'github'
+            ? githubArr
+            : mode === 'linkedin'
+              ? linkedinArr
+              : contactArr;
+      const lerpAlpha = 1 - Math.exp(-5.5 * delta);
 
       for (let i = 0; i < P_COUNT; i++) {
         const idx = i * 3;
         const tx = targetArr[idx];
-        const ty = targetArr[idx + 1] + Math.sin(elapsed * 1.5 + i * 0.04) * 0.025;
+        const ty = targetArr[idx + 1] + Math.sin(elapsed * 1.4 + i * 0.03) * 0.022;
         const tz = targetArr[idx + 2];
         liveArr[idx] = THREE.MathUtils.lerp(liveArr[idx], tx, lerpAlpha);
         liveArr[idx + 1] = THREE.MathUtils.lerp(liveArr[idx + 1], ty, lerpAlpha);
@@ -1648,39 +1897,52 @@ export function buildPedestalChamber(
       }
       posAttr.needsUpdate = true;
 
-      particleCloud.rotation.y = elapsed * 0.24 + pointerX * 0.45;
-      particleCloud.rotation.x = pointerY * 0.22;
-
+      particleCloud.rotation.y = Math.sin(elapsed * 0.38) * 0.35 + pointerX * 0.42;
+      particleCloud.rotation.x = pointerY * 0.18;
       graphGroup.rotation.copy(particleCloud.rotation);
-      graphWireMat.opacity = THREE.MathUtils.damp(
-        graphWireMat.opacity,
-        mode === 'blockchain' ? 0.55 : 0.08,
-        5,
+
+      emailMat.opacity = THREE.MathUtils.damp(emailMat.opacity, mode === 'email' ? 0.72 : 0, 7, delta);
+      emailBrightMat.opacity = THREE.MathUtils.damp(
+        emailBrightMat.opacity,
+        mode === 'email' ? 0.9 : 0,
+        7,
         delta
       );
+      emailGroup.visible = emailMat.opacity > 0.01;
+
+      githubMat.opacity = THREE.MathUtils.damp(githubMat.opacity, mode === 'github' ? 0.55 : 0, 7, delta);
+      githubBrightMat.opacity = THREE.MathUtils.damp(
+        githubBrightMat.opacity,
+        mode === 'github' ? 0.88 : 0,
+        7,
+        delta
+      );
+      githubGroup.visible = githubMat.opacity > 0.01;
+
+      liMat.opacity = THREE.MathUtils.damp(liMat.opacity, mode === 'linkedin' ? 0.62 : 0, 7, delta);
+      liBrightMat.opacity = THREE.MathUtils.damp(
+        liBrightMat.opacity,
+        mode === 'linkedin' ? 0.9 : 0,
+        7,
+        delta
+      );
+      linkedinGroup.visible = liMat.opacity > 0.01;
+
+      ctMat.opacity = THREE.MathUtils.damp(ctMat.opacity, mode === 'contact' ? 0.62 : 0, 7, delta);
+      ctBrightMat.opacity = THREE.MathUtils.damp(
+        ctBrightMat.opacity,
+        mode === 'contact' ? 0.9 : 0,
+        7,
+        delta
+      );
+      contactGroup.visible = ctMat.opacity > 0.01;
 
       arcGroup.rotation.y = -elapsed * 0.42;
       arcGroup.rotation.z = Math.sin(elapsed * 0.6) * 0.08;
+      portalDiscMat.opacity = 0.12 + Math.sin(elapsed * 1.8) * 0.04;
     },
     dispose: () => {
-      topDiscGeo.dispose();
-      topDiscMat.dispose();
-      baseGeo.dispose();
-      baseMat.dispose();
-      trimGeo.dispose();
-      trimMat.dispose();
-      ringGeos.forEach((g) => g.dispose());
-      cyanRingMat.dispose();
-      arcGeo.dispose();
-      arcMat.dispose();
-      topHaloGeo.dispose();
-      icoGeo.dispose();
-      icoEdgesGeo.dispose();
-      octGeo.dispose();
-      octEdgesGeo.dispose();
-      graphWireMat.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
+      disposables.forEach((d) => d.dispose());
     },
   };
 }

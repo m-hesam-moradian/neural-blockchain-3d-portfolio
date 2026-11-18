@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowUpRight, Check, Copy } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Check,
+  Copy,
+  Github,
+  Linkedin,
+  Mail,
+  MessageSquare,
+  Phone,
+  Send,
+} from 'lucide-react';
 import { RESUME_DATA } from '../data/resume';
 import { PedestalMode } from '../three/detailedChambers';
 
@@ -14,10 +24,15 @@ interface HologramInspectorModalProps {
   onSelectPedestalMode: (mode: PedestalMode) => void;
 }
 
-const PEDESTAL_MODES: { id: PedestalMode; label: string }[] = [
-  { id: 'blockchain', label: 'BLOCKCHAIN' },
-  { id: 'neural', label: 'NEURAL' },
-  { id: 'helix', label: 'HELIX' },
+const PEDESTAL_MODES: {
+  id: PedestalMode;
+  label: string;
+  preview: string;
+}[] = [
+  { id: 'email', label: 'Email', preview: RESUME_DATA.identity.email },
+  { id: 'github', label: 'GitHub', preview: RESUME_DATA.identity.githubHandle },
+  { id: 'linkedin', label: 'LinkedIn', preview: RESUME_DATA.identity.linkedinHandle },
+  { id: 'contact', label: 'Phone & Form', preview: RESUME_DATA.identity.phone },
 ];
 
 /**
@@ -70,8 +85,12 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
   pedestalMode,
   onSelectPedestalMode,
 }) => {
-  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedField, setCopiedField] = useState<'email' | 'phone' | null>(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const [senderEmail, setSenderEmail] = useState('');
+  const [messageText, setMessageText] = useState('');
+  const [formError, setFormError] = useState('');
+  const [formSent, setFormSent] = useState(false);
 
   useEffect(() => {
     setAvatarFailed(false);
@@ -81,101 +100,319 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
 
   const hasPhoto = Boolean(RESUME_DATA.identity.avatarUrl.trim()) && !avatarFailed;
 
-  const handleCopyEmail = async () => {
+  const handleCopy = async (field: 'email' | 'phone', value: string) => {
     try {
-      await navigator.clipboard.writeText(RESUME_DATA.identity.email);
-      setCopiedEmail(true);
-      window.setTimeout(() => setCopiedEmail(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      window.setTimeout(() => setCopiedField(null), 2000);
     } catch {
-      setCopiedEmail(false);
+      setCopiedField(null);
     }
+  };
+
+  const handleContactSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedEmail = senderEmail.trim();
+    const trimmedMsg = messageText.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setFormError('Please enter a valid email address.');
+      return;
+    }
+    if (!trimmedMsg) {
+      setFormError('Please enter a short message.');
+      return;
+    }
+    setFormError('');
+    setFormSent(true);
+
+    const subject = encodeURIComponent(`Portfolio Inquiry from ${trimmedEmail}`);
+    const body = encodeURIComponent(`From: ${trimmedEmail}\n\n${trimmedMsg}`);
+    window.location.href = `mailto:${RESUME_DATA.identity.email}?subject=${subject}&body=${body}`;
   };
 
   if (activeCard === 'contact') {
     const activeFigure = RESUME_DATA.stageFigures[pedestalMode];
+    const telHref = `tel:${RESUME_DATA.identity.phone.replace(/[^\d+]/g, '')}`;
+
     return (
       <div
         aria-live="polite"
         style={{
           opacity: revealAmount,
-          transform: `translate3d(0, ${((1 - enterT) * 14).toFixed(1)}px, 0)`,
+          transform: `translate3d(0, ${((1 - enterT) * 16).toFixed(1)}px, 0)`,
           willChange: 'transform, opacity',
         }}
-        className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-end md:flex-row md:items-center md:justify-between px-5 pb-16 md:px-7 md:pb-0 gap-5"
+        className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between px-4 pt-16 pb-16 sm:px-8 sm:pt-20 sm:pb-16"
       >
-        {/* Left Margin: Cardless Stage Figure Selector & Live Description */}
-        <div className="pointer-events-none max-w-[275px] border-l-2 border-[#00FFFF]/80 pl-3.5 space-y-2">
-          <div className="pointer-events-auto flex flex-wrap items-center gap-2">
-            {PEDESTAL_MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => onSelectPedestalMode(m.id)}
-                className={`font-mono-hud text-[9.5px] tracking-wider pb-0.5 border-b transition-colors cursor-pointer ${
-                  pedestalMode === m.id
-                    ? 'border-[#00FFFF] text-[#00FFFF]'
-                    : 'border-transparent text-[#8A929A] hover:text-[#FFFFFF]'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-1">
-            <h3 className="font-display-hud text-sm font-medium text-[#FFFFFF]">
-              {activeFigure.title}
-            </h3>
-            <p className="text-[11.5px] leading-relaxed text-[#B8C2CC]">
-              {activeFigure.description}
-            </p>
+        {/* Top/Center Focal Stage: Bold Contact Panel Anchored Inside the Active 3D Figure */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="pointer-events-auto relative w-full max-w-[460px] border border-[#00FFFF]/60 bg-[#05090E]/62 backdrop-blur-[6px] p-5 sm:p-6 shadow-[0_0_52px_rgba(0,255,255,0.18)]">
+            <span aria-hidden="true" className="absolute -top-[1px] -left-[1px] h-3.5 w-3.5 border-t-2 border-l-2 border-[#00FFFF]" />
+            <span aria-hidden="true" className="absolute -top-[1px] -right-[1px] h-3.5 w-3.5 border-t-2 border-r-2 border-[#00FFFF]" />
+            <span aria-hidden="true" className="absolute -bottom-[1px] -left-[1px] h-3.5 w-3.5 border-b-2 border-l-2 border-[#00FFFF]" />
+            <span aria-hidden="true" className="absolute -bottom-[1px] -right-[1px] h-3.5 w-3.5 border-b-2 border-r-2 border-[#00FFFF]" />
+
+            {pedestalMode === 'email' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-[#00FFFF]">
+                    <Mail className="w-4 h-4" />
+                    <span>{activeFigure.title}</span>
+                  </div>
+                  <span className="font-mono-hud text-[11px] text-[#B8C4D0]">
+                    {RESUME_DATA.identity.availability}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="font-display-hud text-xl sm:text-2xl font-semibold tracking-tight text-[#FFFFFF] break-all">
+                    {RESUME_DATA.identity.email}
+                  </p>
+                  <p className="text-xs sm:text-sm leading-relaxed text-[#CBD5E1]">
+                    {activeFigure.description}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <a
+                    href={`mailto:${RESUME_DATA.identity.email}`}
+                    className="inline-flex min-h-[46px] items-center justify-center gap-2 bg-[#00FFFF] px-4 py-2.5 text-sm font-semibold text-[#060A0F] hover:bg-[#D8FFFF] transition-colors focus-visible:outline-2 focus-visible:outline-[#FFFFFF]"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span className="whitespace-nowrap">Send Email</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('email', RESUME_DATA.identity.email)}
+                    className="inline-flex min-h-[46px] items-center justify-center gap-2 border border-[#00FFFF]/65 bg-[#0A131C]/90 px-4 py-2.5 text-sm font-medium text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors cursor-pointer"
+                  >
+                    {copiedField === 'email' ? (
+                      <>
+                        <Check className="w-4 h-4 text-[#00FFFF]" />
+                        <span className="whitespace-nowrap">Copied Address</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span className="whitespace-nowrap">Copy Address</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {pedestalMode === 'github' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-[#00FFFF]">
+                    <Github className="w-4 h-4" />
+                    <span>{activeFigure.title}</span>
+                  </div>
+                  <span className="font-mono-hud text-[11px] text-[#B8C4D0]">Open Source</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="font-display-hud text-2xl sm:text-3xl font-semibold tracking-tight text-[#FFFFFF]">
+                    {RESUME_DATA.identity.githubHandle}
+                  </p>
+                  <p className="text-xs sm:text-sm leading-relaxed text-[#CBD5E1]">
+                    {activeFigure.description}
+                  </p>
+                </div>
+
+                <a
+                  href={RESUME_DATA.identity.githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 bg-[#00FFFF] px-5 py-3 text-sm font-semibold text-[#060A0F] hover:bg-[#D8FFFF] transition-colors focus-visible:outline-2 focus-visible:outline-[#FFFFFF]"
+                >
+                  <Github className="w-4 h-4" />
+                  <span className="whitespace-nowrap">Open GitHub Profile</span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </a>
+              </div>
+            )}
+
+            {pedestalMode === 'linkedin' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-[#00FFFF]">
+                    <Linkedin className="w-4 h-4" />
+                    <span>{activeFigure.title}</span>
+                  </div>
+                  <span className="font-mono-hud text-[11px] text-[#B8C4D0]">
+                    {RESUME_DATA.identity.linkedinHandle}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="font-display-hud text-2xl sm:text-3xl font-semibold tracking-tight text-[#FFFFFF]">
+                    {RESUME_DATA.identity.name}
+                  </p>
+                  <p className="text-xs sm:text-sm text-[#D8FFFF]">
+                    {RESUME_DATA.identity.role} · {RESUME_DATA.identity.location}
+                  </p>
+                  <p className="text-xs sm:text-sm leading-relaxed text-[#CBD5E1]">
+                    {activeFigure.description}
+                  </p>
+                </div>
+
+                <a
+                  href={RESUME_DATA.identity.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 bg-[#00FFFF] px-5 py-3 text-sm font-semibold text-[#060A0F] hover:bg-[#D8FFFF] transition-colors focus-visible:outline-2 focus-visible:outline-[#FFFFFF]"
+                >
+                  <Linkedin className="w-4 h-4" />
+                  <span className="whitespace-nowrap">Connect on LinkedIn</span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </a>
+              </div>
+            )}
+
+            {pedestalMode === 'contact' && (
+              <div className="space-y-3.5">
+                {/* Bold Direct Phone Number Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border border-[#00FFFF]/45 bg-[#0A131C]/90 px-3.5 py-2.5">
+                  <a
+                    href={telHref}
+                    className="inline-flex items-center gap-2.5 text-base sm:text-lg font-semibold text-[#FFFFFF] hover:text-[#00FFFF] transition-colors font-mono-hud"
+                  >
+                    <Phone className="w-4 h-4 text-[#00FFFF] shrink-0" />
+                    <span>{RESUME_DATA.identity.phone}</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('phone', RESUME_DATA.identity.phone)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border border-[#00FFFF]/40 text-[#00FFFF] hover:bg-[#00FFFF]/15 transition-colors cursor-pointer"
+                  >
+                    {copiedField === 'phone' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Number</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {formSent ? (
+                  <div className="border border-[#00FFFF]/50 bg-[#0A1922]/90 p-4 space-y-3 text-center">
+                    <p className="text-sm font-semibold text-[#FFFFFF]">
+                      Message prepared for {RESUME_DATA.identity.name}
+                    </p>
+                    <p className="text-xs text-[#CBD5E1]">
+                      Your email draft opened. You can also reach me directly at{' '}
+                      <span className="text-[#00FFFF]">{RESUME_DATA.identity.email}</span>.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormSent(false);
+                        setMessageText('');
+                      }}
+                      className="inline-flex min-h-[40px] items-center justify-center border border-[#00FFFF]/60 px-4 py-2 text-xs font-medium text-[#00FFFF] hover:bg-[#00FFFF]/15 transition-colors cursor-pointer"
+                    >
+                      Send Another Message
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleContactSubmit} className="space-y-2.5" noValidate>
+                    <div>
+                      <label htmlFor="contact-email" className="sr-only">
+                        Your Email
+                      </label>
+                      <input
+                        id="contact-email"
+                        type="email"
+                        value={senderEmail}
+                        onChange={(e) => setSenderEmail(e.target.value)}
+                        placeholder="Your email address"
+                        className="w-full min-h-[42px] border border-[#8A929A]/45 bg-[#090F17]/95 px-3 py-2 text-sm text-[#FFFFFF] placeholder:text-[#8A929A] focus:border-[#00FFFF] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="contact-message" className="sr-only">
+                        Message
+                      </label>
+                      <textarea
+                        id="contact-message"
+                        rows={2}
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        placeholder="Write your message or project inquiry..."
+                        className="w-full border border-[#8A929A]/45 bg-[#090F17]/95 px-3 py-2 text-sm text-[#FFFFFF] placeholder:text-[#8A929A] focus:border-[#00FFFF] focus:outline-none resize-none"
+                      />
+                    </div>
+                    {formError && (
+                      <p className="text-xs font-medium text-[#00FFFF]" role="alert">
+                        {formError}
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 bg-[#00FFFF] px-4 py-2.5 text-sm font-semibold text-[#060A0F] hover:bg-[#D8FFFF] transition-colors cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Send Message</span>
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Margin: Cardless Direct Contact Uplink */}
-        <div className="pointer-events-none max-w-[275px] flex flex-col items-start md:items-end md:text-right border-l-2 md:border-l-0 md:border-r-2 border-[#00FFFF]/80 pl-3.5 md:pl-0 md:pr-3.5 space-y-2">
-          <div className="space-y-0.5">
-            <p className="font-mono-hud text-[9.5px] tracking-widest text-[#00FFFF]">
-              {RESUME_DATA.identity.availability}
-            </p>
-            <p className="font-mono-hud text-[10px] text-[#8A929A]">
-              {RESUME_DATA.identity.location}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleCopyEmail}
-            className="pointer-events-auto inline-flex items-center gap-2 font-mono-hud text-xs text-[#FFFFFF] hover:text-[#00FFFF] transition-colors cursor-pointer"
-          >
-            <span className="truncate">{RESUME_DATA.identity.email}</span>
-            <span className="text-[9.5px] text-[#00FFFF] inline-flex items-center gap-1 shrink-0">
-              {copiedEmail ? (
-                <>
-                  <Check className="w-3 h-3" /> COPIED
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" /> COPY
-                </>
-              )}
-            </span>
-          </button>
-          <div className="pointer-events-auto flex items-center gap-3 font-mono-hud text-[10px]">
-            <a
-              href={RESUME_DATA.identity.githubUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-[#B8C2CC] hover:text-[#00FFFF] transition-colors"
-            >
-              GITHUB <ArrowUpRight className="w-3 h-3" />
-            </a>
-            <a
-              href={RESUME_DATA.identity.linkedinUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-[#B8C2CC] hover:text-[#00FFFF] transition-colors"
-            >
-              LINKEDIN <ArrowUpRight className="w-3 h-3" />
-            </a>
+        {/* Big, Noticeable Bottom Figure & Contact Switcher Buttons */}
+        <div className="pointer-events-auto mx-auto w-full max-w-[780px] pt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+            {PEDESTAL_MODES.map((m) => {
+              const isActive = pedestalMode === m.id;
+              const Icon =
+                m.id === 'email'
+                  ? Mail
+                  : m.id === 'github'
+                    ? Github
+                    : m.id === 'linkedin'
+                      ? Linkedin
+                      : MessageSquare;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => onSelectPedestalMode(m.id)}
+                  aria-pressed={isActive}
+                  className={`flex min-h-[58px] items-center gap-3 px-4 py-3 text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#00FFFF] ${
+                    isActive
+                      ? 'border-2 border-[#00FFFF] bg-[#0B1E28]/92 text-[#FFFFFF] shadow-[0_0_24px_rgba(0,255,255,0.28)]'
+                      : 'border border-[#8A929A]/45 bg-[#080C12]/88 text-[#D6E0E8] hover:border-[#00FFFF]/80 hover:bg-[#0B141D]/92 hover:text-[#FFFFFF]'
+                  }`}
+                >
+                  <Icon
+                    className={`w-5 h-5 shrink-0 ${
+                      isActive ? 'text-[#00FFFF]' : 'text-[#8A929A]'
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-semibold tracking-wide whitespace-nowrap truncate">
+                      {m.label}
+                    </p>
+                    <p
+                      className={`font-mono-hud text-[10px] truncate ${
+                        isActive ? 'text-[#D8FFFF]' : 'text-[#8A929A]'
+                      }`}
+                    >
+                      {m.preview}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
