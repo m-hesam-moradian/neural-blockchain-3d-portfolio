@@ -33,8 +33,8 @@ export const DETAILED_CHAMBERS: ChamberConfig[] = [
     hudTitle: 'CH.03 // WORK',
     sectionTag: 'PROJECTS & EXPERIENCE',
     scrollAt: 0.72,
-    camPos: [3.9, -20.8, 0.2],
-    camTarget: [3.8, -24.0, -12.0],
+    camPos: [-4.2, -21.2, -0.4],
+    camTarget: [-4.0, -24.0, -12.0],
   },
   {
     index: '04',

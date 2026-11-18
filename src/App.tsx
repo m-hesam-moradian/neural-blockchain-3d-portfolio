@@ -69,7 +69,6 @@ export default function App() {
   const [activeChamberIdx, setActiveChamberIdx] = useState(0);
   const [warpIntensity, setWarpIntensity] = useState(0);
   const [teleportFlash, setTeleportFlash] = useState(0);
-  const [solarFlash, setSolarFlash] = useState(0);
   const [isOrbiting, setIsOrbiting] = useState(false);
   const [pedestalMode, setPedestalMode] = useState<PedestalMode>('blockchain');
   const [cameraResetNonce, setCameraResetNonce] = useState(0);
@@ -113,20 +112,13 @@ export default function App() {
   }, []);
 
   const handleTelemetryUpdate = useCallback(
-    (
-      chamberIdx: number,
-      warp: number,
-      teleport: number,
-      orbiting: boolean,
-      solar: number
-    ) => {
+    (chamberIdx: number, warp: number, teleport: number, orbiting: boolean) => {
       setActiveChamberIdx((prev) => {
         if (prev !== chamberIdx) ambientAudio.playPulse();
         return chamberIdx;
       });
       setWarpIntensity(warp);
       setTeleportFlash(teleport);
-      setSolarFlash(solar);
       setIsOrbiting(orbiting);
     },
     []
@@ -169,7 +161,7 @@ export default function App() {
         style={{ opacity: warpIntensity * 0.05, transition: 'opacity 60ms linear' }}
       />
 
-      {/* Neuron Core Teleport Flash (smooth pure-cyan energy saturation from inside Last Neuron) */}
+      {/* Portal Core Teleport Flash (pure-cyan energy saturation across Neuron & Reactor portals) */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-40"
@@ -177,17 +169,6 @@ export default function App() {
           opacity: teleportFlash,
           background:
             'radial-gradient(circle at center, #D8FFFF 0%, #00FFFF 42%, #091820 100%)',
-        }}
-      />
-
-      {/* Solar Core Entry Flash (warm amber-gold transition when plunging straight into the Sun toward CH.04) */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-40"
-        style={{
-          opacity: solarFlash,
-          background:
-            'radial-gradient(circle at center, #FFF5DB 0%, #FFAA38 45%, #1A0F06 100%)',
         }}
       />
 

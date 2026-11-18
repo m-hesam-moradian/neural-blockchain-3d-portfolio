@@ -184,18 +184,28 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
 
   const cardWidthClass =
     activeCard === 'work'
-      ? 'w-full md:w-[48%] lg:w-[45%] max-w-[560px]'
+      ? 'w-full md:w-[46%] lg:w-[43%] max-w-[530px]'
       : 'w-full md:w-[45%] lg:w-[42%] max-w-[490px]';
 
-  const wrapperAlignClass = 'justify-center md:justify-end md:pr-8 lg:pr-12';
+  const isWorkLeft = activeCard === 'work';
+
+  const wrapperAlignClass = isWorkLeft
+    ? 'justify-center md:justify-start md:pl-8 lg:pl-12'
+    : 'justify-center md:justify-end md:pr-8 lg:pr-12';
 
   const animStyle: React.CSSProperties = {
     opacity: revealAmount,
-    transform: `translate3d(${((1 - enterT) * 22 - exitT * 18).toFixed(1)}px, 0, 0) scale(${(
-      0.96 +
-      0.04 * enterT +
-      0.015 * exitT
-    ).toFixed(4)})`,
+    transform: isWorkLeft
+      ? `translate3d(${(-(1 - enterT) * 22 - exitT * 18).toFixed(1)}px, 0, 0) scale(${(
+          0.96 +
+          0.04 * enterT +
+          0.015 * exitT
+        ).toFixed(4)})`
+      : `translate3d(${((1 - enterT) * 22 - exitT * 18).toFixed(1)}px, 0, 0) scale(${(
+          0.96 +
+          0.04 * enterT +
+          0.015 * exitT
+        ).toFixed(4)})`,
     willChange: 'transform, opacity',
   };
 

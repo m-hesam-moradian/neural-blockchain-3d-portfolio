@@ -1088,17 +1088,17 @@ export function buildDriftChamber(glowTex: THREE.CanvasTexture) {
 }
 
 /**
- * CH.03 // DYNAMIC KEY-SKILLS SOLAR VORTEX:
- * Open space featuring a warm amber Sun core, trailing trajectory beam, and orbiting
- * colored Key-Skill planets (dynamically driven by RESUME_DATA.keySkills count & colors)
- * carving clean helical vortex ribbons with restrained, non-glaring illumination.
+ * CH.03 // QUANTUM GYROSCOPE REACTOR:
+ * Sleek Obsidian Graphite & Pure Cyan multi-axis segmented gyroscope portal with an inner
+ * crystalline core and dynamic orbiting Key-Skill prism satellites (driven by RESUME_DATA.keySkills).
+ * Zero solar system, zero orange hues, zero blocking canyon sticks.
  */
 export function buildIrisChamber(
   yPos: number,
   zPos: number,
   _obsidianTex: THREE.CanvasTexture,
-  _glowTex: THREE.CanvasTexture,
-  neutralGlowTex: THREE.CanvasTexture,
+  glowTex: THREE.CanvasTexture,
+  _neutralGlowTex: THREE.CanvasTexture,
   keySkills: ResumeKeySkill[]
 ) {
   const root = new THREE.Group();
@@ -1107,12 +1107,12 @@ export function buildIrisChamber(
   const disposables: { dispose: () => void }[] = [];
   const rng = createRng(3303);
 
-  // Subtle deep-space starfield surrounding the Solar Vortex (low opacity, crisp)
-  const starCount = 260;
+  // Subtle deep-space obsidian cyan micro-particles (restrained depth field)
+  const starCount = 240;
   const starGeo = new THREE.BufferGeometry();
   const starPos = new Float32Array(starCount * 3);
   for (let i = 0; i < starCount; i++) {
-    const r = 4.6 + rng() * 14.0;
+    const r = 4.6 + rng() * 13.5;
     const theta = rng() * Math.PI * 2;
     const phi = Math.acos(2 * rng() - 1);
     starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
@@ -1121,232 +1121,229 @@ export function buildIrisChamber(
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
   const starMat = new THREE.PointsMaterial({
-    color: 0xb8c8d8,
-    size: 0.045,
+    color: 0x9fefff,
+    size: 0.04,
     transparent: true,
-    opacity: 0.42,
+    opacity: 0.38,
     depthWrite: false,
   });
   root.add(new THREE.Points(starGeo, starMat));
   disposables.push(starGeo, starMat);
 
-  // Tilted diagonal helical frame matching the sweeping solar-system motion axis
-  const solarSystemGroup = new THREE.Group();
-  solarSystemGroup.rotation.set(0.32, -0.38, -0.22);
-  root.add(solarSystemGroup);
+  // Subtle translucent architectural ground grid far below Reactor for spatial continuity
+  const subGrid = new THREE.GridHelper(22, 22, 0x00ffff, 0x1a222b);
+  subGrid.position.set(0, -4.8, 0);
+  const subGridMat = subGrid.material as THREE.Material;
+  subGridMat.transparent = true;
+  subGridMat.opacity = 0.14;
+  root.add(subGrid);
+  disposables.push(subGrid);
 
-  const sunZ = 1.95; // Sun leads at the front tip (+Z) of the helical trajectory
-  const trailLength = 8.4;
+  // Main Quantum Gyroscope Assembly
+  const reactorGroup = new THREE.Group();
+  reactorGroup.rotation.set(0.22, -0.26, 0.08);
+  root.add(reactorGroup);
 
-  // 1. Central Leading Sun Core (warm golden-amber, softly luminous without blinding glare)
-  const sunGroup = new THREE.Group();
-  sunGroup.position.set(0, 0, sunZ);
-  solarSystemGroup.add(sunGroup);
-
-  const sunGeo = new THREE.SphereGeometry(0.38, 28, 22);
-  const sunMat = new THREE.MeshBasicMaterial({
-    color: 0xffefd2,
+  const obsidianMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1f27,
+    roughness: 0.24,
+    metalness: 0.88,
   });
-  sunGroup.add(new THREE.Mesh(sunGeo, sunMat));
-
-  const sunShellGeo = new THREE.SphereGeometry(0.45, 24, 18);
-  const sunShellMat = new THREE.MeshBasicMaterial({
-    color: 0xff9e2c,
+  const cyanEdgeMat = new THREE.LineBasicMaterial({
+    color: 0x00ffff,
     transparent: true,
-    opacity: 0.26,
+    opacity: 0.78,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  sunGroup.add(new THREE.Mesh(sunShellGeo, sunShellMat));
-
-  const sunAuraMat = new THREE.SpriteMaterial({
-    map: neutralGlowTex,
-    color: 0xffaa3b,
+  const iceEdgeMat = new THREE.LineBasicMaterial({
+    color: 0xd8ffff,
     transparent: true,
     opacity: 0.48,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  const sunAura = new THREE.Sprite(sunAuraMat);
-  sunAura.scale.set(1.9, 1.9, 1);
-  sunGroup.add(sunAura);
+  disposables.push(obsidianMat, cyanEdgeMat, iceEdgeMat);
 
-  const sunOuterGlowMat = new THREE.SpriteMaterial({
-    map: neutralGlowTex,
-    color: 0xff7b1c,
+  // 1. 3-Axis Interlocking Segmented Obsidian Gyroscope Rings
+  interface GimbalRing {
+    group: THREE.Group;
+    baseTiltX: number;
+    baseTiltY: number;
+    spinZ: number;
+    spinY: number;
+  }
+  const gimbalSpecs = [
+    { r: 2.65, tube: 0.11, segs: 6, gap: 0.18, tiltX: 0.35, tiltY: -0.2, spinZ: 0.14, spinY: 0.08 },
+    { r: 2.1, tube: 0.09, segs: 5, gap: 0.22, tiltX: -0.58, tiltY: 0.42, spinZ: -0.22, spinY: -0.12 },
+    { r: 1.55, tube: 0.075, segs: 4, gap: 0.28, tiltX: 0.72, tiltY: 0.65, spinZ: 0.32, spinY: 0.16 },
+    { r: 1.05, tube: 0.055, segs: 3, gap: 0.36, tiltX: -0.25, tiltY: -0.78, spinZ: -0.45, spinY: -0.2 },
+  ];
+
+  const gimbalRings: GimbalRing[] = [];
+  gimbalSpecs.forEach((spec, idx) => {
+    const ringPivot = new THREE.Group();
+    ringPivot.rotation.set(spec.tiltX, spec.tiltY, 0);
+
+    const ringSpin = new THREE.Group();
+    const arcLen = (Math.PI * 2) / spec.segs - spec.gap;
+    for (let s = 0; s < spec.segs; s++) {
+      const start = s * ((Math.PI * 2) / spec.segs);
+      const tGeo = new THREE.TorusGeometry(spec.r, spec.tube, 8, 22, arcLen);
+      const eGeo = new THREE.EdgesGeometry(tGeo, 16);
+      disposables.push(tGeo, eGeo);
+
+      const mesh = new THREE.Mesh(tGeo, obsidianMat);
+      mesh.rotation.z = start;
+      mesh.add(new THREE.LineSegments(eGeo, idx % 2 === 0 ? cyanEdgeMat : iceEdgeMat));
+      ringSpin.add(mesh);
+    }
+
+    ringPivot.add(ringSpin);
+    reactorGroup.add(ringPivot);
+    gimbalRings.push({
+      group: ringSpin,
+      baseTiltX: spec.tiltX,
+      baseTiltY: spec.tiltY,
+      spinZ: spec.spinZ,
+      spinY: spec.spinY,
+    });
+  });
+
+  // 2. Central Crystalline Singularity Core (Obsidian Glass Icosahedron + Glowing Cyan Nucleus)
+  const coreGroup = new THREE.Group();
+  reactorGroup.add(coreGroup);
+
+  const outerCrystalGeo = new THREE.IcosahedronGeometry(0.62, 0);
+  const outerCrystalEdges = new THREE.EdgesGeometry(outerCrystalGeo);
+  const outerCrystalMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0b161e,
+    emissive: new THREE.Color(0x00ffff),
+    emissiveIntensity: 0.14,
+    roughness: 0.12,
+    metalness: 0.35,
     transparent: true,
-    opacity: 0.18,
+    opacity: 0.58,
+    depthWrite: false,
+  });
+  const outerCrystal = new THREE.Mesh(outerCrystalGeo, outerCrystalMat);
+  outerCrystal.add(new THREE.LineSegments(outerCrystalEdges, cyanEdgeMat));
+  coreGroup.add(outerCrystal);
+
+  const innerCrystalGeo = new THREE.OctahedronGeometry(0.32, 0);
+  const innerCrystalMat = new THREE.MeshBasicMaterial({
+    color: 0xd8ffff,
+    transparent: true,
+    opacity: 0.88,
+  });
+  const innerCrystal = new THREE.Mesh(innerCrystalGeo, innerCrystalMat);
+  coreGroup.add(innerCrystal);
+
+  const coreAuraMat = new THREE.SpriteMaterial({
+    map: glowTex,
+    color: 0x00ffff,
+    transparent: true,
+    opacity: 0.45,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  const sunOuterGlow = new THREE.Sprite(sunOuterGlowMat);
-  sunOuterGlow.scale.set(3.4, 3.4, 1);
-  sunGroup.add(sunOuterGlow);
-
-  // Local PointLight from the Sun naturally illuminates all colored skill planets
-  const sunPointLight = new THREE.PointLight(0xffd28a, 7.5, 22, 1.3);
-  sunGroup.add(sunPointLight);
-
-  // Restrained central trajectory beam trailing behind the Sun
-  const spineGeo = new THREE.CylinderGeometry(0.036, 0.004, trailLength * 0.9, 10);
-  spineGeo.rotateX(Math.PI / 2);
-  const spineMat = new THREE.MeshBasicMaterial({
-    color: 0xffb347,
-    transparent: true,
-    opacity: 0.34,
-    depthWrite: false,
-  });
-  const sunSpine = new THREE.Mesh(spineGeo, spineMat);
-  sunSpine.position.set(0, 0, sunZ - trailLength * 0.45);
-  solarSystemGroup.add(sunSpine);
+  const coreAura = new THREE.Sprite(coreAuraMat);
+  coreAura.scale.set(2.1, 2.1, 1);
+  coreGroup.add(coreAura);
 
   disposables.push(
-    sunGeo,
-    sunMat,
-    sunShellGeo,
-    sunShellMat,
-    sunAuraMat,
-    sunOuterGlowMat,
-    spineGeo,
-    spineMat
+    outerCrystalGeo,
+    outerCrystalEdges,
+    outerCrystalMat,
+    innerCrystalGeo,
+    innerCrystalMat,
+    coreAuraMat
   );
 
-  // Subtle translucent vortex guide rings perpendicular to trajectory
-  const guideRingMat = new THREE.LineBasicMaterial({
-    color: 0x4b5e73,
+  // 3. Dynamic Key-Skill Orbital Prism Nodes tethered around the Reactor Core
+  const effectiveSkills: ResumeKeySkill[] =
+    keySkills.length > 0 ? keySkills : [{ name: 'SYSTEMS', color: '#00FFFF' }];
+
+  const nodeGeo = new THREE.OctahedronGeometry(0.13, 0);
+  const nodeWireGeo = new THREE.EdgesGeometry(nodeGeo);
+  const trackLineMat = new THREE.LineBasicMaterial({
+    color: 0x00ffff,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.2,
+    blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-  [1.45, 2.55, 3.65].forEach((r, idx) => {
-    const pts: THREE.Vector3[] = [];
-    const segs = 72;
-    for (let s = 0; s <= segs; s++) {
-      const a = (s / segs) * Math.PI * 2;
-      pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0));
-    }
-    const g = new THREE.BufferGeometry().setFromPoints(pts);
-    const loop = new THREE.Line(g, guideRingMat);
-    loop.position.z = sunZ - 0.55 - idx * 1.45;
-    solarSystemGroup.add(loop);
-    disposables.push(g);
+  const tetherMat = new THREE.LineBasicMaterial({
+    color: 0x00ffff,
+    transparent: true,
+    opacity: 0.24,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
   });
-  disposables.push(guideRingMat);
+  disposables.push(nodeGeo, nodeWireGeo, trackLineMat, tetherMat);
 
-  // 2. Dynamic Key-Skill Orbiting Planets & Non-Glaring Helical Trails
-  const effectiveSkills: ResumeKeySkill[] =
-    keySkills.length > 0 ? keySkills : [{ name: 'SYSTEMS', color: '#00D4E8' }];
-
-  interface HelicalPlanetSpec {
-    skill: ResumeKeySkill;
-    orbitR: number;
-    planetR: number;
+  interface OrbitalSkillNode {
+    orbitGroup: THREE.Group;
+    nodePivot: THREE.Group;
+    nodeMesh: THREE.Mesh;
+    labelMat: THREE.SpriteMaterial;
+    tetherAttr: THREE.BufferAttribute;
+    radius: number;
     speed: number;
     phase: number;
-    turns: number;
-    leadZ: number;
-    tailLen: number;
-    tiltY: number;
-    hasRing: boolean;
   }
 
-  const skillCount = effectiveSkills.length;
-  const planetSpecs: HelicalPlanetSpec[] = effectiveSkills.map((skill, idx) => {
-    const ratio = skillCount === 1 ? 0.45 : idx / (skillCount - 1);
-    const orbitR = skillCount === 1 ? 1.95 : 0.92 + ratio * 3.05;
-    // Slight deterministic organic planet size variation
-    const planetR = 0.13 + ((idx * 37) % 11) * 0.008;
-    const speed = 0.72 - ratio * 0.52;
-    const phase = (idx * 2.39996) % (Math.PI * 2); // Golden-angle spacing works cleanly for any count
-    const turns = 2.05 - ratio * 1.05;
-    const leadZ = sunZ - 0.35 - ratio * 2.1;
-    const tailLen = 6.2 + ratio * 2.3;
-    const tiltY = 0.9 + ((idx % 3) - 1) * 0.04;
-    const hasRing = skillCount >= 4 && idx % 4 === 3;
-    return {
-      skill,
-      orbitR,
-      planetR,
-      speed,
-      phase,
-      turns,
-      leadZ,
-      tailLen,
-      tiltY,
-      hasRing,
-    };
-  });
+  const skillNodes: OrbitalSkillNode[] = [];
+  const count = effectiveSkills.length;
 
-  const TRAIL_SEGS = 100;
-  const planetSphereGeo = new THREE.SphereGeometry(1, 22, 18);
-  const satRingGeo = new THREE.RingGeometry(1.45, 2.02, 40);
-  satRingGeo.rotateX(Math.PI * 0.42);
-  disposables.push(planetSphereGeo, satRingGeo);
+  effectiveSkills.forEach((skill, idx) => {
+    const ratio = count === 1 ? 0.5 : idx / (count - 1);
+    const radius = count === 1 ? 3.2 : 2.95 + ratio * 1.15;
+    const speed = (idx % 2 === 0 ? 1 : -1) * (0.28 - ratio * 0.1);
+    const phase = (idx * 2.39996) % (Math.PI * 2);
 
-  interface RuntimePlanet {
-    spec: HelicalPlanetSpec;
-    headGroup: THREE.Group;
-    labelSprite: THREE.Sprite;
-    labelMat: THREE.SpriteMaterial;
-    trailPosAttr: THREE.BufferAttribute;
-    trailLine: THREE.Line;
-  }
-
-  const runtimePlanets: RuntimePlanet[] = [];
-  const planetColor = new THREE.Color();
-  const liftedTrailColor = new THREE.Color();
-  const tailBgColor = new THREE.Color(0x121417);
-
-  planetSpecs.forEach((spec) => {
-    planetColor.set(spec.skill.color);
-    // Keep very dark colors (e.g. dark blue) crisp & clearly legible on dark graphite
-    liftedTrailColor.copy(planetColor).lerp(new THREE.Color(0xffffff), 0.16);
-
-    const headGroup = new THREE.Group();
-    const pMat = new THREE.MeshStandardMaterial({
-      color: planetColor.clone(),
-      emissive: planetColor.clone(),
-      emissiveIntensity: 0.28,
-      roughness: 0.42,
-      metalness: 0.22,
-    });
-    const pMesh = new THREE.Mesh(planetSphereGeo, pMat);
-    pMesh.scale.setScalar(spec.planetR);
-    headGroup.add(pMesh);
-
-    // Restrained soft colored halo around each planet (zero neon blowout)
-    const glowMat = new THREE.SpriteMaterial({
-      map: neutralGlowTex,
-      color: liftedTrailColor.clone(),
-      transparent: true,
-      opacity: 0.34,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const glowSprite = new THREE.Sprite(glowMat);
-    glowSprite.scale.setScalar(spec.planetR * 4.2);
-    headGroup.add(glowSprite);
-
-    if (spec.hasRing) {
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: liftedTrailColor.clone(),
-        transparent: true,
-        opacity: 0.48,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      });
-      const ring = new THREE.Mesh(satRingGeo, ringMat);
-      ring.scale.setScalar(spec.planetR);
-      ring.rotation.y = 0.45;
-      headGroup.add(ring);
-      disposables.push(ringMat);
-    }
-
-    // Crisp Floating Key Skill Label Sprite attached above each planet
-    const { tex: labelTex, aspect } = createSkillPlanetLabelTexture(
-      spec.skill.name,
-      spec.skill.color
+    const orbitGroup = new THREE.Group();
+    orbitGroup.rotation.set(
+      (idx % 3 - 1) * 0.34 + 0.18,
+      (idx * 0.45) % Math.PI,
+      (idx % 2 === 0 ? 1 : -1) * 0.24
     );
+    reactorGroup.add(orbitGroup);
+
+    // Sleek hairline orbital ring
+    const pts: THREE.Vector3[] = [];
+    const segs = 64;
+    for (let s = 0; s <= segs; s++) {
+      const a = (s / segs) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+    }
+    const trackGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    orbitGroup.add(new THREE.Line(trackGeo, trackLineMat));
+    disposables.push(trackGeo);
+
+    const nodePivot = new THREE.Group();
+    orbitGroup.add(nodePivot);
+
+    const accent = new THREE.Color(skill.color);
+    const nodeMat = new THREE.MeshStandardMaterial({
+      color: 0x161c24,
+      emissive: accent,
+      emissiveIntensity: 0.42,
+      roughness: 0.28,
+      metalness: 0.72,
+    });
+    const nodeMesh = new THREE.Mesh(nodeGeo, nodeMat);
+    const nodeEdgeMat = new THREE.LineBasicMaterial({
+      color: accent,
+      transparent: true,
+      opacity: 0.9,
+    });
+    nodeMesh.add(new THREE.LineSegments(nodeWireGeo, nodeEdgeMat));
+    nodePivot.add(nodeMesh);
+    disposables.push(nodeMat, nodeEdgeMat);
+
+    // Floating crisp Key Skill tag right above each prism node
+    const { tex: labelTex, aspect } = createSkillPlanetLabelTexture(skill.name, skill.color);
     const labelMat = new THREE.SpriteMaterial({
       map: labelTex,
       transparent: true,
@@ -1354,101 +1351,83 @@ export function buildIrisChamber(
       depthWrite: false,
     });
     const labelSprite = new THREE.Sprite(labelMat);
-    const labelH = 0.26;
+    const labelH = 0.25;
     labelSprite.scale.set(labelH * aspect, labelH, 1);
-    labelSprite.position.set(0, spec.planetR + 0.24, 0);
-    headGroup.add(labelSprite);
+    labelSprite.position.set(0, 0.28, 0);
+    nodePivot.add(labelSprite);
+    disposables.push(labelTex, labelMat);
 
-    solarSystemGroup.add(headGroup);
-    disposables.push(pMat, glowMat, labelTex, labelMat);
+    // Dynamic laser tether linking prism satellite cleanly back to Reactor core
+    const tetherArr = new Float32Array(6);
+    const tetherGeo = new THREE.BufferGeometry();
+    const tetherAttr = new THREE.BufferAttribute(tetherArr, 3);
+    tetherAttr.setUsage(THREE.DynamicDrawUsage);
+    tetherGeo.setAttribute('position', tetherAttr);
+    orbitGroup.add(new THREE.Line(tetherGeo, tetherMat));
+    disposables.push(tetherGeo);
 
-    // Tapered helical wake (NormalBlending so overlapping trails stay clean & true-colored)
-    const positions = new Float32Array((TRAIL_SEGS + 1) * 3);
-    const colors = new Float32Array((TRAIL_SEGS + 1) * 3);
-
-    for (let k = 0; k <= TRAIL_SEGS; k++) {
-      const frac = k / TRAIL_SEGS;
-      const fade = Math.pow(1 - frac, 1.4);
-      colors[k * 3] = THREE.MathUtils.lerp(tailBgColor.r, liftedTrailColor.r, fade);
-      colors[k * 3 + 1] = THREE.MathUtils.lerp(tailBgColor.g, liftedTrailColor.g, fade);
-      colors[k * 3 + 2] = THREE.MathUtils.lerp(tailBgColor.b, liftedTrailColor.b, fade);
-    }
-
-    const trailGeo = new THREE.BufferGeometry();
-    const trailPosAttr = new THREE.BufferAttribute(positions, 3);
-    trailPosAttr.setUsage(THREE.DynamicDrawUsage);
-    trailGeo.setAttribute('position', trailPosAttr);
-    trailGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const trailMat = new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.74,
-      depthWrite: false,
-    });
-    const trailLine = new THREE.Line(trailGeo, trailMat);
-    trailLine.frustumCulled = false;
-    solarSystemGroup.add(trailLine);
-
-    disposables.push(trailGeo, trailMat);
-    runtimePlanets.push({
-      spec,
-      headGroup,
-      labelSprite,
+    skillNodes.push({
+      orbitGroup,
+      nodePivot,
+      nodeMesh,
       labelMat,
-      trailPosAttr,
-      trailLine,
+      tetherAttr,
+      radius,
+      speed,
+      phase,
     });
   });
 
-  // Precomputed world position of the Sun center (initialized immediately and refreshed each frame)
-  const sunWorldPos = new THREE.Vector3();
-  solarSystemGroup.updateMatrixWorld(true);
-  sunGroup.getWorldPosition(sunWorldPos);
+  const coreWorldPos = new THREE.Vector3(0, yPos, zPos);
+  reactorGroup.updateMatrixWorld(true);
+  coreGroup.getWorldPosition(coreWorldPos);
 
   return {
     root,
-    getSunWorldPosition: (out: THREE.Vector3) => out.copy(sunWorldPos),
+    getCoreWorldPosition: (out: THREE.Vector3) => out.copy(coreWorldPos),
     update: (elapsed: number, pointerX: number, pointerY: number, flyProgress: number) => {
-      // Gentle responsive parallax that centers cleanly as we fly straight into the Sun
       const tiltDamp = 1 - THREE.MathUtils.smoothstep(flyProgress, 0.15, 0.75);
-      solarSystemGroup.rotation.y = -0.38 + pointerX * 0.14 * tiltDamp;
-      solarSystemGroup.rotation.x = 0.32 + pointerY * 0.1 * tiltDamp;
-      solarSystemGroup.scale.setScalar(1.0 + flyProgress * 0.25);
+      reactorGroup.rotation.y = -0.26 * tiltDamp + pointerX * 0.16 * tiltDamp;
+      reactorGroup.rotation.x = 0.22 * tiltDamp + pointerY * 0.12 * tiltDamp;
+      reactorGroup.updateMatrixWorld(true);
+      coreGroup.getWorldPosition(coreWorldPos);
 
-      solarSystemGroup.updateMatrixWorld(true);
-      sunGroup.getWorldPosition(sunWorldPos);
+      // Counter-rotating obsidian gyroscope gimbals that open smoothly outward during portal dive
+      const openScale = 1.0 + flyProgress * 0.58;
+      gimbalRings.forEach((gr, idx) => {
+        gr.group.rotation.z = elapsed * gr.spinZ;
+        gr.group.rotation.y = elapsed * gr.spinY;
+        gr.group.scale.setScalar(openScale + flyProgress * idx * 0.14);
+      });
 
-      const sunPulse = 1.85 + Math.sin(elapsed * 2.0) * 0.12 + flyProgress * 0.9;
-      sunAura.scale.set(sunPulse, sunPulse, 1);
-      sunOuterGlow.scale.set(sunPulse * 1.75, sunPulse * 1.75, 1);
+      outerCrystal.rotation.y = elapsed * 0.35;
+      outerCrystal.rotation.x = elapsed * 0.22;
+      innerCrystal.rotation.y = -elapsed * 0.65;
+      innerCrystal.rotation.z = elapsed * 0.4;
 
-      const labelFade = 1 - THREE.MathUtils.smoothstep(flyProgress, 0.18, 0.55);
+      const auraScale = 2.0 + Math.sin(elapsed * 2.2) * 0.18 + flyProgress * 2.8;
+      coreAura.scale.set(auraScale, auraScale, 1);
 
-      for (let i = 0; i < runtimePlanets.length; i++) {
-        const rp = runtimePlanets[i];
-        const sp = rp.spec;
-        const headAngle = sp.phase + elapsed * sp.speed + flyProgress * 0.85;
-        const arr = rp.trailPosAttr.array as Float32Array;
-        rp.labelMat.opacity = 0.92 * labelFade;
+      const labelFade = 1 - THREE.MathUtils.smoothstep(flyProgress, 0.14, 0.48);
 
-        for (let k = 0; k <= TRAIL_SEGS; k++) {
-          const frac = k / TRAIL_SEGS;
-          const a = headAngle - frac * sp.turns * Math.PI * 2;
-          const radiusScale = 1.0 - frac * 0.18;
-          const x = Math.cos(a) * sp.orbitR * radiusScale;
-          const y = Math.sin(a) * sp.orbitR * sp.tiltY * radiusScale;
-          const z = sp.leadZ - frac * sp.tailLen;
+      for (let i = 0; i < skillNodes.length; i++) {
+        const sn = skillNodes[i];
+        const angle = sn.phase + elapsed * sn.speed;
+        const nx = Math.cos(angle) * sn.radius;
+        const nz = Math.sin(angle) * sn.radius;
+        sn.nodePivot.position.set(nx, 0, nz);
+        sn.nodeMesh.rotation.y = elapsed * 0.9 + i;
+        sn.nodeMesh.rotation.x = elapsed * 0.55;
+        sn.labelMat.opacity = 0.92 * labelFade;
 
-          arr[k * 3] = x;
-          arr[k * 3 + 1] = y;
-          arr[k * 3 + 2] = z;
-
-          if (k === 0) {
-            rp.headGroup.position.set(x, y, z);
-          }
-        }
-        rp.trailPosAttr.needsUpdate = true;
+        const arr = sn.tetherAttr.array as Float32Array;
+        arr[0] = 0;
+        arr[1] = 0;
+        arr[2] = 0;
+        arr[3] = nx;
+        arr[4] = 0;
+        arr[5] = nz;
+        sn.tetherAttr.needsUpdate = true;
       }
     },
     dispose: () => {
