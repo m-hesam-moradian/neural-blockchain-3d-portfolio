@@ -30,9 +30,10 @@ const PEDESTAL_MODES: {
   preview: string;
 }[] = [
   { id: 'email', label: 'Email', preview: RESUME_DATA.identity.email },
+  { id: 'phone', label: 'Phone', preview: RESUME_DATA.identity.phone },
   { id: 'github', label: 'GitHub', preview: RESUME_DATA.identity.githubHandle },
   { id: 'linkedin', label: 'LinkedIn', preview: RESUME_DATA.identity.linkedinHandle },
-  { id: 'contact', label: 'Phone & Form', preview: RESUME_DATA.identity.phone },
+  { id: 'form', label: 'Contact Form', preview: 'Send a message' },
 ];
 
 /**
@@ -139,14 +140,14 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
         aria-live="polite"
         style={{
           opacity: revealAmount,
-          transform: `translate3d(0, ${((1 - enterT) * 16).toFixed(1)}px, 0)`,
+          transform: `translate3d(0, ${((1 - enterT) * 14).toFixed(1)}px, 0)`,
           willChange: 'transform, opacity',
         }}
-        className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between px-4 pt-16 pb-16 sm:px-8 sm:pt-20 sm:pb-16"
+        className="pointer-events-none fixed inset-0 z-30 flex flex-col justify-between px-4 pt-16 pb-14 sm:px-6 sm:pt-20 sm:pb-16"
       >
-        {/* Top/Center Focal Stage: Bold Contact Panel Anchored Inside the Active 3D Figure */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="pointer-events-auto relative w-full max-w-[460px] border border-[#00FFFF]/60 bg-[#05090E]/62 backdrop-blur-[6px] p-5 sm:p-6 shadow-[0_0_52px_rgba(0,255,255,0.18)]">
+        {/* Right-Half Docked Contact Card (3D Pedestal Figure stays unobstructed on Left Half) */}
+        <div className="flex-1 flex items-center justify-center md:justify-end md:pr-6 lg:pr-10">
+          <div className="pointer-events-auto relative w-full md:w-[46%] lg:w-[43%] max-w-[490px] border border-[#00FFFF]/45 bg-[#080C12]/84 backdrop-blur-md p-5 sm:p-6 shadow-[0_14px_48px_rgba(0,0,0,0.78)]">
             <span aria-hidden="true" className="absolute -top-[1px] -left-[1px] h-3.5 w-3.5 border-t-2 border-l-2 border-[#00FFFF]" />
             <span aria-hidden="true" className="absolute -top-[1px] -right-[1px] h-3.5 w-3.5 border-t-2 border-r-2 border-[#00FFFF]" />
             <span aria-hidden="true" className="absolute -bottom-[1px] -left-[1px] h-3.5 w-3.5 border-b-2 border-l-2 border-[#00FFFF]" />
@@ -154,7 +155,7 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
 
             {pedestalMode === 'email' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3 border-b border-[#8A929A]/25 pb-3">
                   <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-[#00FFFF]">
                     <Mail className="w-4 h-4" />
                     <span>{activeFigure.title}</span>
@@ -202,9 +203,59 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
               </div>
             )}
 
+            {pedestalMode === 'phone' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3 border-b border-[#8A929A]/25 pb-3">
+                  <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-[#00FFFF]">
+                    <Phone className="w-4 h-4" />
+                    <span>{activeFigure.title}</span>
+                  </div>
+                  <span className="font-mono-hud text-[11px] text-[#B8C4D0]">
+                    {RESUME_DATA.identity.location}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="font-mono-hud text-2xl sm:text-3xl font-semibold tracking-tight text-[#FFFFFF]">
+                    {RESUME_DATA.identity.phone}
+                  </p>
+                  <p className="text-xs sm:text-sm leading-relaxed text-[#CBD5E1]">
+                    {activeFigure.description}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <a
+                    href={telHref}
+                    className="inline-flex min-h-[46px] items-center justify-center gap-2 bg-[#00FFFF] px-4 py-2.5 text-sm font-semibold text-[#060A0F] hover:bg-[#D8FFFF] transition-colors focus-visible:outline-2 focus-visible:outline-[#FFFFFF]"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span className="whitespace-nowrap">Call Number</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('phone', RESUME_DATA.identity.phone)}
+                    className="inline-flex min-h-[46px] items-center justify-center gap-2 border border-[#00FFFF]/65 bg-[#0A131C]/90 px-4 py-2.5 text-sm font-medium text-[#FFFFFF] hover:border-[#00FFFF] hover:text-[#00FFFF] transition-colors cursor-pointer"
+                  >
+                    {copiedField === 'phone' ? (
+                      <>
+                        <Check className="w-4 h-4 text-[#00FFFF]" />
+                        <span className="whitespace-nowrap">Copied Number</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span className="whitespace-nowrap">Copy Number</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {pedestalMode === 'github' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3 border-b border-[#8A929A]/25 pb-3">
                   <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-[#00FFFF]">
                     <Github className="w-4 h-4" />
                     <span>{activeFigure.title}</span>
@@ -236,7 +287,7 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
 
             {pedestalMode === 'linkedin' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3 border-b border-[#8A929A]/25 pb-3">
                   <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-[#00FFFF]">
                     <Linkedin className="w-4 h-4" />
                     <span>{activeFigure.title}</span>
@@ -271,34 +322,16 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
               </div>
             )}
 
-            {pedestalMode === 'contact' && (
-              <div className="space-y-3.5">
-                {/* Bold Direct Phone Number Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border border-[#00FFFF]/45 bg-[#0A131C]/90 px-3.5 py-2.5">
-                  <a
-                    href={telHref}
-                    className="inline-flex items-center gap-2.5 text-base sm:text-lg font-semibold text-[#FFFFFF] hover:text-[#00FFFF] transition-colors font-mono-hud"
-                  >
-                    <Phone className="w-4 h-4 text-[#00FFFF] shrink-0" />
-                    <span>{RESUME_DATA.identity.phone}</span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy('phone', RESUME_DATA.identity.phone)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border border-[#00FFFF]/40 text-[#00FFFF] hover:bg-[#00FFFF]/15 transition-colors cursor-pointer"
-                  >
-                    {copiedField === 'phone' ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Number</span>
-                      </>
-                    )}
-                  </button>
+            {pedestalMode === 'form' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3 border-b border-[#8A929A]/25 pb-3">
+                  <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wider uppercase text-[#00FFFF]">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>{activeFigure.title}</span>
+                  </div>
+                  <span className="font-mono-hud text-[11px] text-[#B8C4D0]">
+                    {RESUME_DATA.identity.name}
+                  </span>
                 </div>
 
                 {formSent ? (
@@ -307,8 +340,8 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                       Message prepared for {RESUME_DATA.identity.name}
                     </p>
                     <p className="text-xs text-[#CBD5E1]">
-                      Your email draft opened. You can also reach me directly at{' '}
-                      <span className="text-[#00FFFF]">{RESUME_DATA.identity.email}</span>.
+                      Your email draft opened. Direct inbox:{' '}
+                      <span className="text-[#00FFFF]">{RESUME_DATA.identity.email}</span>
                     </p>
                     <button
                       type="button"
@@ -322,9 +355,10 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleContactSubmit} className="space-y-2.5" noValidate>
+                  <form onSubmit={handleContactSubmit} className="space-y-3" noValidate>
+                    <p className="text-xs text-[#CBD5E1]">{activeFigure.description}</p>
                     <div>
-                      <label htmlFor="contact-email" className="sr-only">
+                      <label htmlFor="contact-email" className="block text-xs font-medium text-[#B8C4D0] mb-1">
                         Your Email
                       </label>
                       <input
@@ -332,20 +366,20 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
                         type="email"
                         value={senderEmail}
                         onChange={(e) => setSenderEmail(e.target.value)}
-                        placeholder="Your email address"
+                        placeholder="you@company.com"
                         className="w-full min-h-[42px] border border-[#8A929A]/45 bg-[#090F17]/95 px-3 py-2 text-sm text-[#FFFFFF] placeholder:text-[#8A929A] focus:border-[#00FFFF] focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label htmlFor="contact-message" className="sr-only">
+                      <label htmlFor="contact-message" className="block text-xs font-medium text-[#B8C4D0] mb-1">
                         Message
                       </label>
                       <textarea
                         id="contact-message"
-                        rows={2}
+                        rows={3}
                         value={messageText}
                         onChange={(e) => setMessageText(e.target.value)}
-                        placeholder="Write your message or project inquiry..."
+                        placeholder="Write your message or role inquiry..."
                         className="w-full border border-[#8A929A]/45 bg-[#090F17]/95 px-3 py-2 text-sm text-[#FFFFFF] placeholder:text-[#8A929A] focus:border-[#00FFFF] focus:outline-none resize-none"
                       />
                     </div>
@@ -368,33 +402,35 @@ export const HologramInspectorModal: React.FC<HologramInspectorModalProps> = ({
           </div>
         </div>
 
-        {/* Big, Noticeable Bottom Figure & Contact Switcher Buttons */}
-        <div className="pointer-events-auto mx-auto w-full max-w-[780px] pt-2">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+        {/* Big, Noticeable 5-Button Bottom Contact & Figure Switcher Dock */}
+        <div className="pointer-events-auto mx-auto w-full max-w-[980px] pt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             {PEDESTAL_MODES.map((m) => {
               const isActive = pedestalMode === m.id;
               const Icon =
                 m.id === 'email'
                   ? Mail
-                  : m.id === 'github'
-                    ? Github
-                    : m.id === 'linkedin'
-                      ? Linkedin
-                      : MessageSquare;
+                  : m.id === 'phone'
+                    ? Phone
+                    : m.id === 'github'
+                      ? Github
+                      : m.id === 'linkedin'
+                        ? Linkedin
+                        : MessageSquare;
               return (
                 <button
                   key={m.id}
                   type="button"
                   onClick={() => onSelectPedestalMode(m.id)}
                   aria-pressed={isActive}
-                  className={`flex min-h-[58px] items-center gap-3 px-4 py-3 text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#00FFFF] ${
+                  className={`flex min-h-[56px] items-center gap-2.5 px-3.5 py-2.5 text-left transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[#00FFFF] ${
                     isActive
                       ? 'border-2 border-[#00FFFF] bg-[#0B1E28]/92 text-[#FFFFFF] shadow-[0_0_24px_rgba(0,255,255,0.28)]'
                       : 'border border-[#8A929A]/45 bg-[#080C12]/88 text-[#D6E0E8] hover:border-[#00FFFF]/80 hover:bg-[#0B141D]/92 hover:text-[#FFFFFF]'
                   }`}
                 >
                   <Icon
-                    className={`w-5 h-5 shrink-0 ${
+                    className={`w-4 h-4 shrink-0 ${
                       isActive ? 'text-[#00FFFF]' : 'text-[#8A929A]'
                     }`}
                   />

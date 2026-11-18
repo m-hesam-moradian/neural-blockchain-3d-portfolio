@@ -5,7 +5,7 @@ import {
   createSkillPlanetLabelTexture,
 } from './proceduralTextures';
 
-export type PedestalMode = 'email' | 'github' | 'linkedin' | 'contact';
+export type PedestalMode = 'email' | 'phone' | 'github' | 'linkedin' | 'form';
 
 export function createRng(seed: number) {
   let s = seed >>> 0;
@@ -1663,30 +1663,67 @@ export function buildPedestalChamber(
   graphGroup.add(linkedinGroup);
   disposables.push(liFrameGeo, iDotGeo, iStemGeo, nLeftGeo, nRightGeo, nArchGeo);
 
-  // --- Emblem 4: CONTACT / PHONE & FORM (3D Signal Transceiver + Wave Rings) ---
-  const contactGroup = new THREE.Group();
-  const ctMat = makeWireMat(0x00ffff, 0);
-  const ctBrightMat = makeWireMat(0xd8ffff, 0);
-  const spireGeo = new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.06, 0.36, 2.2, 6));
-  contactGroup.add(new THREE.LineSegments(spireGeo, ctBrightMat));
-  [0.65, 1.08, 1.52].forEach((r, idx) => {
-    const ringGeo = new THREE.EdgesGeometry(new THREE.TorusGeometry(r, 0.025, 6, 36));
-    const ring = new THREE.LineSegments(ringGeo, idx === 1 ? ctBrightMat : ctMat);
-    ring.rotation.x = Math.PI / 2 - idx * 0.26;
-    ring.position.y = (idx - 1) * 0.34;
-    contactGroup.add(ring);
-    disposables.push(ringGeo);
+  // --- Emblem 4: PHONE (3D Sculpted Handset Receiver + Outgoing Acoustic Wave Arcs) ---
+  const phoneGroup = new THREE.Group();
+  const phoneMat = makeWireMat(0x00ffff, 0);
+  const phoneBrightMat = makeWireMat(0xd8ffff, 0);
+  const handsetCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.78, 0.88, 0),
+    new THREE.Vector3(-0.48, 0.24, 0.1),
+    new THREE.Vector3(0.18, -0.42, 0.1),
+    new THREE.Vector3(0.86, -0.76, 0),
+  ]);
+  const handsetTubeGeo = new THREE.EdgesGeometry(new THREE.TubeGeometry(handsetCurve, 24, 0.16, 8, false));
+  phoneGroup.add(new THREE.LineSegments(handsetTubeGeo, phoneBrightMat));
+  const earCupGeo = new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.28, 0.24, 0.28, 8));
+  const topCup = new THREE.LineSegments(earCupGeo, phoneBrightMat);
+  topCup.position.set(-0.76, 0.9, 0.12);
+  topCup.rotation.set(0.2, 0, -0.55);
+  const botCup = new THREE.LineSegments(earCupGeo, phoneBrightMat);
+  botCup.position.set(0.86, -0.76, 0.12);
+  botCup.rotation.set(0.2, 0, -0.95);
+  phoneGroup.add(topCup, botCup);
+  [0.52, 0.88, 1.24].forEach((r) => {
+    const waveGeo = new THREE.EdgesGeometry(new THREE.TorusGeometry(r, 0.018, 6, 20, Math.PI * 0.52));
+    const wave = new THREE.LineSegments(waveGeo, phoneMat);
+    wave.position.set(0.12, 0.12, 0);
+    wave.rotation.z = -0.15;
+    phoneGroup.add(wave);
+    disposables.push(waveGeo);
   });
-  graphGroup.add(contactGroup);
-  disposables.push(spireGeo);
+  graphGroup.add(phoneGroup);
+  disposables.push(handsetTubeGeo, earCupGeo);
+
+  // --- Emblem 5: CONTACT FORM (3D Message Terminal Frame + Wave Spire) ---
+  const formGroup = new THREE.Group();
+  const formMat = makeWireMat(0x00ffff, 0);
+  const formBrightMat = makeWireMat(0xd8ffff, 0);
+  const terminalFrameGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(2.1, 1.6, 0.22));
+  formGroup.add(new THREE.LineSegments(terminalFrameGeo, formMat));
+  [-0.36, 0.0, 0.36].forEach((yOffset, idx) => {
+    const w = idx === 2 ? 0.95 : 1.48;
+    const barGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-0.74, -yOffset, 0.12),
+      new THREE.Vector3(-0.74 + w, -yOffset, 0.12),
+    ]);
+    formGroup.add(new THREE.Line(barGeo, idx === 0 ? formBrightMat : formMat));
+    disposables.push(barGeo);
+  });
+  const sendConeGeo = new THREE.EdgesGeometry(new THREE.OctahedronGeometry(0.26, 0));
+  const sendCone = new THREE.LineSegments(sendConeGeo, formBrightMat);
+  sendCone.position.set(0.68, -0.38, 0.16);
+  formGroup.add(sendCone);
+  graphGroup.add(formGroup);
+  disposables.push(terminalFrameGeo, sendConeGeo);
 
   // --- 2,400 Morphing Particle Cloud Sculptures ---
   const P_COUNT = 2400;
   const rng = createRng(9924);
   const emailArr = new Float32Array(P_COUNT * 3);
+  const phoneArr = new Float32Array(P_COUNT * 3);
   const githubArr = new Float32Array(P_COUNT * 3);
   const linkedinArr = new Float32Array(P_COUNT * 3);
-  const contactArr = new Float32Array(P_COUNT * 3);
+  const formArr = new Float32Array(P_COUNT * 3);
   const liveArr = new Float32Array(P_COUNT * 3);
 
   const sampleSeg = (
@@ -1821,25 +1858,55 @@ export function buildPedestalChamber(
       linkedinArr[i * 3 + 2] = (rng() - 0.5) * 0.2;
     }
 
-    // 4. CONTACT (PHONE & FORM): Harmonic Signal Beacon + Broadcast Wave Rings
-    if (i < P_COUNT * 0.42) {
-      const hAngle = u * Math.PI * 10;
-      const rad = 0.22 + (1 - u) * 0.35;
-      const strand = i % 2 === 0 ? 1 : -1;
-      contactArr[i * 3] = Math.cos(hAngle) * rad * strand;
-      contactArr[i * 3 + 1] = (u - 0.5) * 2.25;
-      contactArr[i * 3 + 2] = Math.sin(hAngle) * rad * strand;
-    } else {
-      const ringIdx = i % 3;
-      const rBase = 0.68 + ringIdx * 0.46;
+    // 4. PHONE: Curved Handset Receiver + Ear/Mouth Cups + Acoustic Signal Arcs
+    if (i < P_COUNT * 0.5) {
+      const hPt = handsetCurve.getPoint(rng());
       const a = rng() * Math.PI * 2;
-      const tilt = 0.32 * ringIdx;
-      const rx = Math.cos(a) * rBase;
-      const rz = Math.sin(a) * rBase;
-      contactArr[i * 3] = rx + (rng() - 0.5) * 0.05;
-      contactArr[i * 3 + 1] =
-        (ringIdx - 1) * 0.34 + rz * Math.sin(tilt) + (rng() - 0.5) * 0.05;
-      contactArr[i * 3 + 2] = rz * Math.cos(tilt) + (rng() - 0.5) * 0.05;
+      const rad = 0.08 + rng() * 0.1;
+      phoneArr[i * 3] = hPt.x + Math.cos(a) * rad;
+      phoneArr[i * 3 + 1] = hPt.y + Math.sin(a) * rad * 0.7;
+      phoneArr[i * 3 + 2] = hPt.z + Math.sin(a) * rad;
+    } else if (i < P_COUNT * 0.72) {
+      const isTop = i % 2 === 0;
+      const cx = isTop ? -0.76 : 0.86;
+      const cy = isTop ? 0.9 : -0.76;
+      const a = rng() * Math.PI * 2;
+      const r = 0.14 + rng() * 0.15;
+      phoneArr[i * 3] = cx + Math.cos(a) * r;
+      phoneArr[i * 3 + 1] = cy + Math.sin(a) * r;
+      phoneArr[i * 3 + 2] = 0.12 + (rng() - 0.5) * 0.24;
+    } else {
+      const wIdx = i % 3;
+      const wr = 0.52 + wIdx * 0.36;
+      const wa = -0.15 + rng() * (Math.PI * 0.52);
+      phoneArr[i * 3] = 0.12 + Math.cos(wa) * wr + (rng() - 0.5) * 0.04;
+      phoneArr[i * 3 + 1] = 0.12 + Math.sin(wa) * wr + (rng() - 0.5) * 0.04;
+      phoneArr[i * 3 + 2] = (rng() - 0.5) * 0.08;
+    }
+
+    // 5. FORM: Message Terminal Tablet + Text Lines + Floating Send Diamond
+    if (i < P_COUNT * 0.45) {
+      const side = i % 4;
+      const t = rng();
+      const fx = side === 0 ? -1.05 + t * 2.1 : side === 1 ? 1.05 : side === 2 ? 1.05 - t * 2.1 : -1.05;
+      const fy = side === 0 ? 0.8 : side === 1 ? 0.8 - t * 1.6 : side === 2 ? -0.8 : -0.8 + t * 1.6;
+      formArr[i * 3] = fx + (rng() - 0.5) * 0.05;
+      formArr[i * 3 + 1] = fy + (rng() - 0.5) * 0.05;
+      formArr[i * 3 + 2] = (rng() - 0.5) * 0.22;
+    } else if (i < P_COUNT * 0.84) {
+      const lineIdx = i % 3;
+      const maxW = lineIdx === 2 ? 0.95 : 1.48;
+      formArr[i * 3] = -0.74 + rng() * maxW;
+      formArr[i * 3 + 1] = (lineIdx - 1) * -0.36 + (rng() - 0.5) * 0.06;
+      formArr[i * 3 + 2] = 0.12 + (rng() - 0.5) * 0.04;
+    } else {
+      const phi = rng() * Math.PI * 2;
+      const cosT = rng() * 2 - 1;
+      const sinT = Math.sqrt(Math.max(0, 1 - cosT * cosT));
+      const r = 0.1 + rng() * 0.16;
+      formArr[i * 3] = 0.68 + r * sinT * Math.cos(phi);
+      formArr[i * 3 + 1] = -0.38 + r * cosT;
+      formArr[i * 3 + 2] = 0.16 + r * sinT * Math.sin(phi);
     }
 
     liveArr[i * 3] = emailArr[i * 3];
@@ -1879,11 +1946,13 @@ export function buildPedestalChamber(
       const targetArr =
         mode === 'email'
           ? emailArr
-          : mode === 'github'
-            ? githubArr
-            : mode === 'linkedin'
-              ? linkedinArr
-              : contactArr;
+          : mode === 'phone'
+            ? phoneArr
+            : mode === 'github'
+              ? githubArr
+              : mode === 'linkedin'
+                ? linkedinArr
+                : formArr;
       const lerpAlpha = 1 - Math.exp(-5.5 * delta);
 
       for (let i = 0; i < P_COUNT; i++) {
@@ -1910,6 +1979,15 @@ export function buildPedestalChamber(
       );
       emailGroup.visible = emailMat.opacity > 0.01;
 
+      phoneMat.opacity = THREE.MathUtils.damp(phoneMat.opacity, mode === 'phone' ? 0.65 : 0, 7, delta);
+      phoneBrightMat.opacity = THREE.MathUtils.damp(
+        phoneBrightMat.opacity,
+        mode === 'phone' ? 0.9 : 0,
+        7,
+        delta
+      );
+      phoneGroup.visible = phoneMat.opacity > 0.01;
+
       githubMat.opacity = THREE.MathUtils.damp(githubMat.opacity, mode === 'github' ? 0.55 : 0, 7, delta);
       githubBrightMat.opacity = THREE.MathUtils.damp(
         githubBrightMat.opacity,
@@ -1928,14 +2006,14 @@ export function buildPedestalChamber(
       );
       linkedinGroup.visible = liMat.opacity > 0.01;
 
-      ctMat.opacity = THREE.MathUtils.damp(ctMat.opacity, mode === 'contact' ? 0.62 : 0, 7, delta);
-      ctBrightMat.opacity = THREE.MathUtils.damp(
-        ctBrightMat.opacity,
-        mode === 'contact' ? 0.9 : 0,
+      formMat.opacity = THREE.MathUtils.damp(formMat.opacity, mode === 'form' ? 0.62 : 0, 7, delta);
+      formBrightMat.opacity = THREE.MathUtils.damp(
+        formBrightMat.opacity,
+        mode === 'form' ? 0.9 : 0,
         7,
         delta
       );
-      contactGroup.visible = ctMat.opacity > 0.01;
+      formGroup.visible = formMat.opacity > 0.01;
 
       arcGroup.rotation.y = -elapsed * 0.42;
       arcGroup.rotation.z = Math.sin(elapsed * 0.6) * 0.08;

@@ -360,17 +360,17 @@ function sampleDetailedFlight(
     };
   }
 
-  // Segment 4A: Emerge onto & dwell cleanly at CH.04 Contact Pedestal (0.805 -> 0.91)
+  // Segment 4A: Emerge onto & dwell cleanly at CH.04 Contact Pedestal framed on LEFT half (0.805 -> 0.91)
   if (p <= 0.91) {
     const enterT = THREE.MathUtils.clamp((p - 0.805) / (0.86 - 0.805), 0, 1);
     const eased = 1 - Math.pow(1 - enterT, 3);
 
-    _vA.set(0.0, -47.0, -5.0);
-    _vB.set(...DETAILED_CHAMBERS[3].camPos); // [0.0, -49.1, -1.9]
+    _vA.set(1.5, -47.2, -5.2);
+    _vB.set(...DETAILED_CHAMBERS[3].camPos); // [3.4, -49.05, -2.0] -> frames Pedestal Figure cleanly in LEFT HALF
     outPos.lerpVectors(_vA, _vB, eased);
 
-    _vC.set(0.0, -51.15, -12.0);
-    _vD.set(...DETAILED_CHAMBERS[3].camTarget); // [0.0, -51.15, -12.0]
+    _vC.set(1.4, -51.1, -12.0);
+    _vD.set(...DETAILED_CHAMBERS[3].camTarget); // [3.2, -51.1, -12.0]
     outTarget.lerpVectors(_vC, _vD, eased);
 
     const emergeFlash = 1 - THREE.MathUtils.smoothstep(p, 0.805, 0.835);
@@ -399,8 +399,8 @@ function sampleDetailedFlight(
     const eased = t * t * (3 - 2 * t);
     const inv = 1 - eased;
 
-    _vA.set(...DETAILED_CHAMBERS[3].camPos); // [0.0, -49.1, -1.9]
-    _vMid.set(0.0, -49.3, -9.2);
+    _vA.set(...DETAILED_CHAMBERS[3].camPos); // [3.4, -49.05, -2.0]
+    _vMid.set(1.4, -49.3, -9.2);
     _vB.set(0.0, -47.2, -12.0); // straight through overhead Halo Ring at y = -49.05, z = -12
     outPos
       .set(0, 0, 0)

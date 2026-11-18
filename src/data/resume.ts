@@ -79,12 +79,13 @@ export interface ResumeData {
   };
   /** Dynamic key skills rendered as orbiting planets in CH.03 (count & colors auto-adapt) */
   keySkills: ResumeKeySkill[];
-  /** Descriptive captions for the 4 contact-linked 3D figures on the CH.04 Pedestal */
+  /** Descriptive captions for the 5 contact-linked 3D figures on the CH.04 Pedestal */
   stageFigures: {
     email: ResumeStageFigureInfo;
+    phone: ResumeStageFigureInfo;
     github: ResumeStageFigureInfo;
     linkedin: ResumeStageFigureInfo;
-    contact: ResumeStageFigureInfo;
+    form: ResumeStageFigureInfo;
   };
   projects: ResumeProject[];
   experience: ResumeExperience[];
@@ -147,6 +148,11 @@ export const RESUME_DATA: ResumeData = {
       title: 'Direct Email',
       description: 'Send inquiries, architecture briefs, or role opportunities directly via email.',
     },
+    phone: {
+      label: 'Phone',
+      title: 'Direct Phone Line',
+      description: 'Call directly or copy the phone number for quick technical interviews and scheduling.',
+    },
     github: {
       label: 'GitHub',
       title: 'GitHub Repositories',
@@ -157,10 +163,10 @@ export const RESUME_DATA: ResumeData = {
       title: 'LinkedIn Profile',
       description: 'Connect for engineering leadership, advisory roles, and systems architecture.',
     },
-    contact: {
-      label: 'Phone & Form',
-      title: 'Phone & Direct Message',
-      description: 'Reach out directly by phone or send an instant message from this stage.',
+    form: {
+      label: 'Contact Form',
+      title: 'Direct Message',
+      description: 'Write a quick note below to start a conversation or share project details.',
     },
   },
   projects: [

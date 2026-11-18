@@ -42,8 +42,8 @@ export const DETAILED_CHAMBERS: ChamberConfig[] = [
     hudTitle: 'CH.04 // CONTACT',
     sectionTag: 'DIRECT UPLINK',
     scrollAt: 0.86,
-    camPos: [0.0, -49.1, -1.9],
-    camTarget: [0.0, -51.15, -12.0],
+    camPos: [3.4, -49.05, -2.0],
+    camTarget: [3.2, -51.1, -12.0],
   },
 ];
 
